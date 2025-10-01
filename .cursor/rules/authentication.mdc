@@ -1,0 +1,20 @@
+---
+description: Authentication flows, routes, and helpers
+---
+
+## Auth Pages
+- Login: `app/auth/login/page.tsx` using `components/login-form.tsx`
+- Sign-up: `app/auth/sign-up/page.tsx` using `components/sign-up-form.tsx`
+- Forgot password: `app/auth/forgot-password/page.tsx` using `components/forgot-password-form.tsx`
+- Update password: `app/auth/update-password/page.tsx` using `components/update-password-form.tsx`
+- OAuth callback/handler: `app/auth/oauth/*`
+- Confirm, error, success routes under `app/auth/*`
+
+## Helpers
+- Current user utilities: `lib/auth/get-current-user.ts`
+- Middleware: [middleware.ts](mdc:middleware.ts) for route protection when needed
+
+## UI Helpers
+- User avatar/name hooks: `hooks/use-current-user-image.ts`, `hooks/use-current-user-name.ts`
+- Menus and states: `components/user-menu.tsx`, `components/guest-menu.tsx`, `components/header.tsx`
+

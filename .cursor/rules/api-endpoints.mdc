@@ -1,0 +1,21 @@
+---
+description: API endpoints map and conventions
+globs: app/api/**/*
+---
+
+## Endpoint Layout
+- **Advanced Search**: `app/api/advanced-search/*`
+- **Chat**: `app/api/chat/*`, `app/api/chats/*`
+- **Config**: `app/api/config/*`
+- **Ollama**: `app/api/ollama/*`
+
+## Conventions
+- Use `POST` for operations that perform actions or stream responses.
+- Validate inputs server-side; prefer shared types from `lib/types/*` when possible.
+- Stream responses via the utilities in `lib/streaming/*` for SSE or incremental UI.
+
+## Related Libraries
+- **Actions**: `lib/actions/chat.ts` integrates with chat endpoints.
+- **Streaming**: `lib/streaming/*` helpers for model outputs.
+- **Tools/Agents**: `lib/tools/*`, `lib/agents/*` used by chat endpoints.
+
