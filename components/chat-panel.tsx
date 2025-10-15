@@ -1,21 +1,20 @@
 'use client'
 
+import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Textarea from 'react-textarea-autosize'
-import { useRouter } from 'next/navigation'
 
 import { Message } from 'ai'
 import { ArrowUp, ChevronDown, MessageCirclePlus, Square } from 'lucide-react'
 
-import { Model } from '@/lib/types/models'
 import { cn } from '@/lib/utils'
 
 import { useArtifact } from './artifact/artifact-context'
-import { Button } from './ui/button'
-import { IconLogo } from './ui/icons'
 import { EmptyScreen } from './empty-screen'
 import { ModelSelector } from './model-selector'
 import { SearchModeToggle } from './search-mode-toggle'
+import { Button } from './ui/button'
+import { IconLogo } from './ui/icons'
 
 interface ChatPanelProps {
   input: string
@@ -27,7 +26,7 @@ interface ChatPanelProps {
   query?: string
   stop: () => void
   append: (message: any) => void
-  models?: Model[]
+  models?: any[]
   /** Whether to show the scroll to bottom button */
   showScrollToBottomButton: boolean
   /** Reference to the scroll container */
@@ -184,7 +183,7 @@ export function ChatPanel({
           {/* Bottom menu area */}
           <div className="flex items-center justify-between p-3">
             <div className="flex items-center gap-2">
-              <ModelSelector models={models || []} />
+              <ModelSelector models={[]} />
               <SearchModeToggle />
             </div>
             <div className="flex items-center gap-2">
