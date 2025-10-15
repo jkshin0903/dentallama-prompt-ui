@@ -4,7 +4,7 @@ export const maxDuration = 30
 
 export async function POST(req: Request) {
   try {
-    const gatewayUrl = process.env.NEXT_PUBLIC_CHAT_GATEWAY_URL
+    const gatewayUrl = process.env.CHAT_GATEWAY_URL
     const payload = await req.json()
     const { messages, id: chatId } = payload
     const referer = req.headers.get('referer')
