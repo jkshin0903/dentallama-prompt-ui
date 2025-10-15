@@ -7,7 +7,6 @@ import { ChatRequestOptions } from 'ai'
 import { Message } from 'ai/react'
 import { toast } from 'sonner'
 
-import { Model } from '@/lib/types/models'
 import { cn } from '@/lib/utils'
 
 import { ChatMessages } from './chat-messages'
@@ -23,13 +22,11 @@ interface ChatSection {
 export function Chat({
   id,
   savedMessages = [],
-  query,
-  models
+  query
 }: {
   id: string
   savedMessages?: Message[]
   query?: string
-  models?: Model[]
 }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
@@ -239,7 +236,7 @@ export function Chat({
         stop={stop}
         query={query}
         append={append}
-        models={models}
+        models={[]}
         showScrollToBottomButton={!isAtBottom}
         scrollContainerRef={scrollContainerRef}
       />
