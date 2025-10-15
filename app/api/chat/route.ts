@@ -26,24 +26,80 @@ export async function POST(req: Request) {
       })
     }
 
+    // Transform the request format for the gateway
+    const gatewayPayload = {
+      message: messages[messages.length - 1]?.content || '',
+      id: chatId,
+      messages: messages,
+      // Include any additional fields the gateway might need
+      ...payload
+    }
+
     // Proxy the request to the external chat gateway
     const upstream = await fetch(gatewayUrl, {
       method: 'POST',
       headers: {
         'content-type': 'application/json'
       },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(gatewayPayload)
     })
 
-    // Stream response through unchanged (supports text/event-stream, etc.)
-    return new Response(upstream.body, {
-      status: upstream.status,
-      statusText: upstream.statusText,
-      headers: {
-        'content-type':
-          upstream.headers.get('content-type') || 'text/plain; charset=utf-8'
+    // Check if the response is streaming or JSON
+    const contentType = upstream.headers.get('content-type') || ''
+
+    if (
+      contentType.includes('text/event-stream') ||
+      contentType.includes('application/x-ndjson')
+    ) {
+      // Stream response through unchanged
+      return new Response(upstream.body, {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers: {
+          'content-type': contentType
+        }
+      })
+    } else {
+      // Handle JSON response by converting to streaming format
+      const responseText = await upstream.text()
+
+      try {
+        const jsonResponse = JSON.parse(responseText)
+
+        // Convert JSON response to streaming format
+        const stream = new ReadableStream({
+          start(controller) {
+            // Send the response as a text chunk in Vercel AI SDK format
+            const response =
+              jsonResponse.response ||
+              jsonResponse.message ||
+              jsonResponse.content ||
+              responseText
+
+            // Use the correct format for Vercel AI SDK
+            const chunk = `0:"${response.replace(/"/g, '\\"')}"\n`
+            controller.enqueue(new TextEncoder().encode(chunk))
+            controller.close()
+          }
+        })
+
+        return new Response(stream, {
+          status: upstream.status,
+          statusText: upstream.statusText,
+          headers: {
+            'content-type': 'text/event-stream',
+            'cache-control': 'no-cache',
+            connection: 'keep-alive'
+          }
+        })
+      } catch (error) {
+        console.error('Failed to parse gateway response:', error)
+        return new Response('Error processing gateway response', {
+          status: 500,
+          statusText: 'Internal Server Error'
+        })
       }
-    })
+    }
   } catch (error) {
     console.error('API route error:', error)
     return new Response('Error processing your request', {
