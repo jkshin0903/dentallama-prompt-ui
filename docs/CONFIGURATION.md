@@ -21,7 +21,7 @@ Follow the detailed setup guide at [Building your own RAG chatbot with Upstash](
 4. Configure your `.env.local`:
 
 ```bash
-NEXT_PUBLIC_ENABLE_SAVE_CHAT_HISTORY=true
+ENABLE_SAVE_CHAT_HISTORY=true
 USE_LOCAL_REDIS=false
 UPSTASH_REDIS_REST_URL=[YOUR_UPSTASH_REDIS_REST_URL]
 UPSTASH_REDIS_REST_TOKEN=[YOUR_UPSTASH_REDIS_REST_TOKEN]
@@ -33,7 +33,7 @@ UPSTASH_REDIS_REST_TOKEN=[YOUR_UPSTASH_REDIS_REST_TOKEN]
 2. Configure your `.env.local`:
 
 ```bash
-NEXT_PUBLIC_ENABLE_SAVE_CHAT_HISTORY=true
+ENABLE_SAVE_CHAT_HISTORY=true
 USE_LOCAL_REDIS=true
 LOCAL_REDIS_URL=redis://localhost:6379
 ```
@@ -210,7 +210,7 @@ OPENAI_COMPATIBLE_API_BASE_URL=[YOUR_API_BASE_URL]
 ### Share Feature
 
 ```bash
-NEXT_PUBLIC_ENABLE_SHARE=true
+ENABLE_SHARE=true
 ```
 
 ### Video Search
