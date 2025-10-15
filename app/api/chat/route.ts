@@ -1,21 +1,6 @@
-import { cookies } from 'next/headers'
-
 import { getCurrentUserId } from '@/lib/auth/get-current-user'
-import { createManualToolStreamResponse } from '@/lib/streaming/create-manual-tool-stream'
-import { createToolCallingStreamResponse } from '@/lib/streaming/create-tool-calling-stream'
-import { Model } from '@/lib/types/models'
-import { isProviderEnabled } from '@/lib/utils/registry'
 
 export const maxDuration = 30
-
-const DEFAULT_MODEL: Model = {
-  id: 'gpt-4o-mini',
-  name: 'GPT-4o mini',
-  provider: 'OpenAI',
-  providerId: 'openai',
-  enabled: true,
-  toolCallType: 'native'
-}
 
 export async function POST(req: Request) {
   try {
@@ -33,71 +18,88 @@ export async function POST(req: Request) {
       })
     }
 
-    // If an external chat gateway is configured, proxy the request directly.
-    if (gatewayUrl) {
-      const upstream = await fetch(gatewayUrl, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify(payload)
+    // Check if external chat gateway is configured
+    if (!gatewayUrl) {
+      return new Response('Chat gateway URL is not configured', {
+        status: 500,
+        statusText: 'Internal Server Error'
       })
+    }
 
-      // Stream response through unchanged (supports text/event-stream, etc.)
+    // Transform the request format for the gateway
+    const gatewayPayload = {
+      message: messages[messages.length - 1]?.content || '',
+      id: chatId,
+      messages: messages,
+      // Include any additional fields the gateway might need
+      ...payload
+    }
+
+    // Proxy the request to the external chat gateway
+    const upstream = await fetch(gatewayUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json'
+      },
+      body: JSON.stringify(gatewayPayload)
+    })
+
+    // Check if the response is streaming or JSON
+    const contentType = upstream.headers.get('content-type') || ''
+
+    if (
+      contentType.includes('text/event-stream') ||
+      contentType.includes('application/x-ndjson')
+    ) {
+      // Stream response through unchanged
       return new Response(upstream.body, {
         status: upstream.status,
         statusText: upstream.statusText,
         headers: {
-          'content-type':
-            upstream.headers.get('content-type') || 'text/plain; charset=utf-8'
+          'content-type': contentType
         }
       })
-    }
+    } else {
+      // Handle JSON response by converting to streaming format
+      const responseText = await upstream.text()
 
-    const cookieStore = await cookies()
-    const modelJson = cookieStore.get('selectedModel')?.value
-    const searchMode = cookieStore.get('search-mode')?.value === 'true'
-
-    let selectedModel = DEFAULT_MODEL
-
-    if (modelJson) {
       try {
-        selectedModel = JSON.parse(modelJson) as Model
-      } catch (e) {
-        console.error('Failed to parse selected model:', e)
+        const jsonResponse = JSON.parse(responseText)
+
+        // Convert JSON response to streaming format
+        const stream = new ReadableStream({
+          start(controller) {
+            // Send the response as a text chunk in Vercel AI SDK format
+            const response =
+              jsonResponse.response ||
+              jsonResponse.message ||
+              jsonResponse.content ||
+              responseText
+
+            // Use the correct format for Vercel AI SDK
+            const chunk = `0:"${response.replace(/"/g, '\\"')}"\n`
+            controller.enqueue(new TextEncoder().encode(chunk))
+            controller.close()
+          }
+        })
+
+        return new Response(stream, {
+          status: upstream.status,
+          statusText: upstream.statusText,
+          headers: {
+            'content-type': 'text/event-stream',
+            'cache-control': 'no-cache',
+            connection: 'keep-alive'
+          }
+        })
+      } catch (error) {
+        console.error('Failed to parse gateway response:', error)
+        return new Response('Error processing gateway response', {
+          status: 500,
+          statusText: 'Internal Server Error'
+        })
       }
     }
-
-    if (
-      !isProviderEnabled(selectedModel.providerId) ||
-      selectedModel.enabled === false
-    ) {
-      return new Response(
-        `Selected provider is not enabled ${selectedModel.providerId}`,
-        {
-          status: 404,
-          statusText: 'Not Found'
-        }
-      )
-    }
-
-    const supportsToolCalling = selectedModel.toolCallType === 'native'
-
-    return supportsToolCalling
-      ? createToolCallingStreamResponse({
-          messages,
-          model: selectedModel,
-          chatId,
-          searchMode,
-          userId
-        })
-      : createManualToolStreamResponse({
-          messages,
-          model: selectedModel,
-          chatId,
-          searchMode,
-          userId
-        })
   } catch (error) {
     console.error('API route error:', error)
     return new Response('Error processing your request', {
