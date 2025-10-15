@@ -1,7 +1,7 @@
 'use client'
-import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils/index'
@@ -30,8 +30,17 @@ export function SignUpForm({
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
+  // Check if authentication is disabled
+  const isAuthDisabled = process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true'
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (isAuthDisabled) {
+      setError('Authentication is currently disabled')
+      return
+    }
+
     const supabase = createClient()
     setIsLoading(true)
     setError(null)
@@ -75,57 +84,73 @@ export function SignUpForm({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSignUp}>
-            <div className="flex flex-col gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  required
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                />
+          {isAuthDisabled ? (
+            <div className="flex flex-col gap-4 text-center">
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  Authentication is currently disabled for maintenance.
+                </p>
+                <p className="text-xs text-yellow-600 mt-1">
+                  Please try again later.
+                </p>
               </div>
-              <div className="grid gap-2">
-                <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
-                </div>
-                <PasswordInput
-                  id="password"
-                  type="password"
-                  placeholder="********"
-                  required
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <div className="flex items-center">
-                  <Label htmlFor="repeat-password">Repeat Password</Label>
-                </div>
-                <PasswordInput
-                  id="repeat-password"
-                  type="password"
-                  placeholder="********"
-                  required
-                  value={repeatPassword}
-                  onChange={e => setRepeatPassword(e.target.value)}
-                />
-              </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Creating account...' : 'Sign Up'}
-              </Button>
             </div>
-            <div className="mt-6 text-center text-sm">
-              Already have an account?{' '}
-              <Link href="/auth/login" className="underline underline-offset-4">
-                Sign In
-              </Link>
-            </div>
-          </form>
+          ) : (
+            <form onSubmit={handleSignUp}>
+              <div className="flex flex-col gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    required
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <div className="flex items-center">
+                    <Label htmlFor="password">Password</Label>
+                  </div>
+                  <PasswordInput
+                    id="password"
+                    type="password"
+                    placeholder="********"
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <div className="flex items-center">
+                    <Label htmlFor="repeat-password">Repeat Password</Label>
+                  </div>
+                  <PasswordInput
+                    id="repeat-password"
+                    type="password"
+                    placeholder="********"
+                    required
+                    value={repeatPassword}
+                    onChange={e => setRepeatPassword(e.target.value)}
+                  />
+                </div>
+                {error && <p className="text-sm text-red-500">{error}</p>}
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? 'Creating account...' : 'Sign Up'}
+                </Button>
+              </div>
+              <div className="mt-6 text-center text-sm">
+                Already have an account?{' '}
+                <Link
+                  href="/auth/login"
+                  className="underline underline-offset-4"
+                >
+                  Sign In
+                </Link>
+              </div>
+            </form>
+          )}
         </CardContent>
       </Card>
       <div className="text-center text-xs text-muted-foreground">

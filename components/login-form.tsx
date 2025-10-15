@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils/index'
@@ -31,8 +31,17 @@ export function LoginForm({
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
+  // Check if authentication is disabled
+  const isAuthDisabled = process.env.NEXT_PUBLIC_DISABLE_AUTH === 'true'
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (isAuthDisabled) {
+      setError('Authentication is currently disabled')
+      return
+    }
+
     const supabase = createClient()
     setIsLoading(true)
     setError(null)
@@ -54,6 +63,11 @@ export function LoginForm({
   }
 
   const handleSocialLogin = async () => {
+    if (isAuthDisabled) {
+      setError('Authentication is currently disabled')
+      return
+    }
+
     const supabase = createClient()
     setIsLoading(true)
     setError(null)
@@ -89,63 +103,78 @@ export function LoginForm({
           <CardDescription>Sign in to your account</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col gap-4">
-            <Button
-              variant="outline"
-              type="button"
-              className="w-full"
-              onClick={handleSocialLogin}
-              disabled={isLoading}
-            >
-              Sign In with Google
-            </Button>
-
-            <div className="relative my-2">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-muted px-2 text-muted-foreground">Or</span>
+          {isAuthDisabled ? (
+            <div className="flex flex-col gap-4 text-center">
+              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  Authentication is currently disabled for maintenance.
+                </p>
+                <p className="text-xs text-yellow-600 mt-1">
+                  Please try again later.
+                </p>
               </div>
             </div>
-
-            <form onSubmit={handleLogin} className="flex flex-col gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="you@example.com"
-                  required
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                />
-              </div>
-              <div className="grid gap-2">
-                <div className="flex items-center">
-                  <Label htmlFor="password">Password</Label>
-                  <Link
-                    href="/auth/forgot-password"
-                    className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
-                  >
-                    Forgot password?
-                  </Link>
-                </div>
-                <PasswordInput
-                  id="password"
-                  type="password"
-                  placeholder="********"
-                  required
-                  value={password}
-                  onChange={e => setPassword(e.target.value)}
-                />
-              </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Logging in...' : 'Sign In'}
+          ) : (
+            <div className="flex flex-col gap-4">
+              <Button
+                variant="outline"
+                type="button"
+                className="w-full"
+                onClick={handleSocialLogin}
+                disabled={isLoading}
+              >
+                Sign In with Google
               </Button>
-            </form>
-          </div>
+
+              <div className="relative my-2">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-muted px-2 text-muted-foreground">
+                    Or
+                  </span>
+                </div>
+              </div>
+
+              <form onSubmit={handleLogin} className="flex flex-col gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="email">Email</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="you@example.com"
+                    required
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <div className="flex items-center">
+                    <Label htmlFor="password">Password</Label>
+                    <Link
+                      href="/auth/forgot-password"
+                      className="ml-auto inline-block text-sm underline-offset-4 hover:underline"
+                    >
+                      Forgot password?
+                    </Link>
+                  </div>
+                  <PasswordInput
+                    id="password"
+                    type="password"
+                    placeholder="********"
+                    required
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                  />
+                </div>
+                {error && <p className="text-sm text-red-500">{error}</p>}
+                <Button type="submit" className="w-full" disabled={isLoading}>
+                  {isLoading ? 'Logging in...' : 'Sign In'}
+                </Button>
+              </form>
+            </div>
+          )}
           <div className="mt-6 text-center text-sm">
             Don&apos;t have an account?{' '}
             <Link href="/auth/sign-up" className="underline underline-offset-4">
