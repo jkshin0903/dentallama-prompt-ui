@@ -132,8 +132,7 @@ export function getToolCallModel(model?: string) {
     case 'groq':
       return getModel('groq:llama-3.1-8b-instant')
     case 'ollama':
-      const ollamaModel =
-        process.env.NEXT_PUBLIC_OLLAMA_TOOL_CALL_MODEL || modelName
+      const ollamaModel = process.env.OLLAMA_TOOL_CALL_MODEL || modelName
       return getModel(`ollama:${ollamaModel}`)
     case 'google':
       return getModel('google:gemini-2.0-flash')

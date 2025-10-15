@@ -38,7 +38,7 @@ export async function getBaseUrlFromHeaders(): Promise<URL> {
  */
 export async function getBaseUrl(): Promise<URL> {
   // Check for environment variables first
-  const baseUrlEnv = process.env.NEXT_PUBLIC_BASE_URL || process.env.BASE_URL
+  const baseUrlEnv = process.env.BASE_URL
 
   if (baseUrlEnv) {
     try {

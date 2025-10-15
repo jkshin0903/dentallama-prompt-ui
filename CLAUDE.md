@@ -74,10 +74,10 @@ TAVILY_API_KEY=      # Default search provider
 
 ### Optional Features
 
-- Chat history: Set `NEXT_PUBLIC_ENABLE_SAVE_CHAT_HISTORY=true` and configure Redis
+- Chat history: Set `ENABLE_SAVE_CHAT_HISTORY=true` and configure Redis
 - Alternative AI providers: Add corresponding API keys (ANTHROPIC_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, etc.)
 - Alternative search: Configure SEARCH_API and provider-specific settings
-- Sharing: Set `NEXT_PUBLIC_ENABLE_SHARE=true`
+- Sharing: Set `ENABLE_SHARE=true`
 
 ## Key Development Patterns
 
