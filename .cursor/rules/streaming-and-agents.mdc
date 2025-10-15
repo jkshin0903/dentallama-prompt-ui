@@ -1,0 +1,19 @@
+---
+description: Streaming utilities, agents, and tools architecture
+---
+
+## Streaming
+- Utilities in `lib/streaming/*` handle incremental model output and SSE-style updates.
+- UI sections `components/reasoning-section.tsx`, `components/retrieve-section.tsx`, `components/answer-section.tsx` render streamed content.
+
+## Agents
+- Implementations under `lib/agents/*` such as `researcher.ts`, `manual-researcher.ts`, and `generate-related-questions.ts`.
+- Agents may orchestrate `lib/tools/*` and model calls defined in `lib/config/models.ts`.
+
+## Tools
+- Tool implementations live in `lib/tools/*` and can be invoked by chat/agents.
+- Artifact renderers in `components/artifact/*` display tool outputs (search, retrieve, video, reasoning, tool invocations).
+
+## Chat Integration
+- Chat actions in `lib/actions/chat.ts` and UI in `components/chat*.tsx` coordinate streaming updates and tool/agent outputs.
+

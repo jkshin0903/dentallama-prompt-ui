@@ -19,7 +19,9 @@ const DEFAULT_MODEL: Model = {
 
 export async function POST(req: Request) {
   try {
-    const { messages, id: chatId } = await req.json()
+    const gatewayUrl = process.env.CHAT_GATEWAY_URL
+    const payload = await req.json()
+    const { messages, id: chatId } = payload
     const referer = req.headers.get('referer')
     const isSharePage = referer?.includes('/share/')
     const userId = await getCurrentUserId()
@@ -28,6 +30,27 @@ export async function POST(req: Request) {
       return new Response('Chat API is not available on share pages', {
         status: 403,
         statusText: 'Forbidden'
+      })
+    }
+
+    // If an external chat gateway is configured, proxy the request directly.
+    if (gatewayUrl) {
+      const upstream = await fetch(gatewayUrl, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      })
+
+      // Stream response through unchanged (supports text/event-stream, etc.)
+      return new Response(upstream.body, {
+        status: upstream.status,
+        statusText: upstream.statusText,
+        headers: {
+          'content-type':
+            upstream.headers.get('content-type') || 'text/plain; charset=utf-8'
+        }
       })
     }
 

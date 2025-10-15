@@ -1,0 +1,25 @@
+---
+description: Configuration files, environment variables, and model settings
+alwaysApply: false
+---
+
+## Core Config Files
+- Next: [next.config.mjs](mdc:next.config.mjs)
+- TypeScript: [tsconfig.json](mdc:tsconfig.json)
+- Tailwind: [tailwind.config.ts](mdc:tailwind.config.ts)
+- PostCSS: [postcss.config.mjs](mdc:postcss.config.mjs)
+- App settings docs: [docs/CONFIGURATION.md](mdc:docs/CONFIGURATION.md)
+- Public app config: `public/config/*.json` (e.g., [public/config/default.json](mdc:public/config/default.json))
+
+## Models and Providers
+- Default models list: `lib/config/default-models.json`
+- Model helpers and selection: `lib/config/models.ts`
+- Ollama client configuration: `lib/ollama/*` and `app/api/ollama/*`
+
+## Environment Variables
+- Place secrets in `.env.local`.
+- Typical variables include credentials for Supabase/Redis/Ollama if applicable; see usages across `lib/supabase/*`, `lib/redis/*`, and `lib/ollama/*`.
+
+## Deployment Notes
+- Ensure public config JSON is present in `public/config/` for client-side consumption when required.
+

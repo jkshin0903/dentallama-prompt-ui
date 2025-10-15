@@ -1,0 +1,47 @@
+---
+alwaysApply: true
+description: High-level project structure and key entry points for quick navigation
+---
+
+## Project Structure Guide
+
+- **App Router (Next.js)**: Source of routes and pages lives in `app/`.
+  - Layout and global styles: `app/layout.tsx`, `app/globals.css`
+  - Landing page: `app/page.tsx`
+  - Route groups include `app/auth/*`, `app/search/*`, `app/share/*`, and API handlers under `app/api/*`.
+
+- **APIs**: Implemented with Next.js Route Handlers under `app/api/`.
+  - Notable subtrees: `advanced-search/`, `chat/`, `chats/`, `config/`, `ollama/`.
+
+- **UI Components**: Reusable components live in `components/`.
+  - UI primitives in `components/ui/*` (shadcn/ui style)
+  - Chat experience in `components/chat*.tsx`, `components/answer-section.tsx`, `components/retrieve-section.tsx`
+  - Artifacts and tool outputs under `components/artifact/*`
+
+- **Domain Logic / Libraries**: In `lib/`.
+  - **Agents**: `lib/agents/*`
+  - **Streaming**: `lib/streaming/*`
+  - **Tools**: `lib/tools/*`
+  - **Auth**: `lib/auth/*`
+  - **Config**: `lib/config/*`
+  - **Types/Utils**: `lib/types/*`, `lib/utils/*`
+
+- **Configuration**
+  - Next config: [next.config.mjs](mdc:next.config.mjs)
+  - TypeScript: [tsconfig.json](mdc:tsconfig.json)
+  - Package: [package.json](mdc:package.json)
+  - Tailwind: [tailwind.config.ts](mdc:tailwind.config.ts)
+  - PostCSS: [postcss.config.mjs](mdc:postcss.config.mjs)
+  - App settings docs: [docs/CONFIGURATION.md](mdc:docs/CONFIGURATION.md)
+
+- **Static/Public Assets**: `public/`
+  - Images and provider icons in `public/images/*`, `public/providers/*`
+  - App-config JSON under `public/config/*`
+
+- **Server Middleware**: `middleware.ts` (auth, rewrites, headers as needed)
+
+### Conventions
+- Prefer colocating route-specific components under the route directory.
+- Shared UI in `components/`, shared logic in `lib/`.
+- Keep API input/output types in `lib/types/` when shared across client and server.
+

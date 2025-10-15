@@ -1,0 +1,31 @@
+---
+globs: *.ts,*.tsx
+description: TypeScript/React coding conventions, error handling, and component patterns
+---
+
+## TypeScript
+- **Types first**: Export shared types from `lib/types/*`.
+- **Explicit exports**: Prefer named exports. Avoid default unless idiomatic for pages.
+- **Async boundaries**: Keep server-only code in `app/api/*` and `lib/*` server modules. Avoid importing server code in client components.
+- **Error handling**: Use `never`-reaching exhaustive checks for discriminated unions. Throw `Error` with clear messages on unrecoverable server issues.
+
+## React / Next.js
+- **Client vs server**: Mark client components with `'use client'`. Keep heavy logic server-side where possible.
+- **Props**: Use explicit prop types. Avoid `any`.
+- **State**: Co-locate state; lift only when necessary. Derive state rather than duplicating.
+- **Effects**: Keep effects minimal; handle async in actions or server.
+- **Accessibility**: Use semantic elements and label form controls. Utilize components in `components/ui/*` for consistent a11y.
+
+## Styling
+- **Tailwind**: Prefer utility classes. Extract repeated patterns into components.
+- **Class merging**: Use existing helpers in `components/ui/*` where available.
+
+## File Organization
+- **Components**: Reusable UI in `components/` with subfolders for domains (e.g., `artifact/`, `sidebar/`).
+- **Routes**: `app/<route>/page.tsx`, optional `loading.tsx`, and route-specific components colocated.
+- **APIs**: Route Handlers under `app/api/<name>/route.ts` or `*.ts` variations per current structure.
+
+## Testing & Linting
+- Follow TypeScript strictness in `tsconfig.json`.
+- Fix linter errors before commit; match existing formatting.
+

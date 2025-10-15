@@ -1,0 +1,17 @@
+---
+description: Components library organization and usage patterns
+globs: components/**/*
+---
+
+## Components Overview
+- **UI Primitives**: `components/ui/*` provide buttons, inputs, dialogs, popovers, etc. Prefer these for consistency and accessibility.
+- **Chat**: `components/chat.tsx`, `components/chat-panel.tsx`, `components/chat-messages.tsx`, and related message components structure the chat experience.
+- **Artifacts**: `components/artifact/*` renders tool/agent outputs (search results, retrieved content, reasoning, video results).
+- **Sidebar**: `components/sidebar/*` handles chat history and actions.
+- **Auth Forms**: `components/login-form.tsx`, `components/sign-up-form.tsx`, `components/update-password-form.tsx`, `components/forgot-password-form.tsx`.
+
+## Usage Notes
+- Prefer composition over extending primitives; wrap `components/ui/*` in domain components when needed.
+- Keep presentation in components; place complex logic in `lib/*` and pass results via props.
+- Use `components/ui/markdown.tsx` for rendering rich text content where needed.
+

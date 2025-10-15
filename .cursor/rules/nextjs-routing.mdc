@@ -1,0 +1,24 @@
+---
+description: Next.js App Router patterns used in this project
+globs: app/**/*
+---
+
+## App Router
+- Pages live under `app/<segment>/page.tsx` with optional `loading.tsx`.
+- Nested dynamic routes use `[id]/page.tsx`.
+- Shared layout is defined in `app/layout.tsx`.
+
+## Current Routes
+- Root: `app/page.tsx`
+- Auth: `app/auth/login/page.tsx`, `app/auth/sign-up/page.tsx`, `app/auth/update-password/page.tsx`, and others under `auth/*`.
+- Search: `app/search/page.tsx`, dynamic: `app/search/[id]/page.tsx`, loading UI in `app/search/loading.tsx`.
+- Share: `app/share/[id]/page.tsx`, loading UI in `app/share/loading.tsx`.
+
+## API Routes
+- Implemented under `app/api/*` using route handlers (single-file `route.ts` or function exports per current structure).
+- Subtrees include: `advanced-search`, `chat`, `chats`, `config`, `ollama`.
+
+## Conventions
+- Co-locate components used only by a route next to it when practical.
+- Prefer server components by default; add `'use client'` when interactivity is needed.
+
