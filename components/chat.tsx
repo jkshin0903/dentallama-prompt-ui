@@ -30,6 +30,7 @@ export function Chat({
 }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
+  const [selectedModel, setSelectedModel] = useState('model-a')
 
   const {
     messages,
@@ -48,7 +49,8 @@ export function Chat({
     initialMessages: savedMessages,
     id: id, // Use unique chat ID for isolated streaming
     body: {
-      id
+      id,
+      model: selectedModel
     },
     onFinish: () => {
       // Only update URL if we're on the home page (new chat)
@@ -237,6 +239,7 @@ export function Chat({
         query={query}
         append={append}
         models={[]}
+        onModelChange={setSelectedModel}
         showScrollToBottomButton={!isAtBottom}
         scrollContainerRef={scrollContainerRef}
       />

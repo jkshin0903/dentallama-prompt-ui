@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   try {
     const gatewayUrl = process.env.CHAT_GATEWAY_URL
     const payload = await req.json()
-    const { messages, id: chatId } = payload
+    const { messages, id: chatId, model } = payload
     const referer = req.headers.get('referer')
     const isSharePage = referer?.includes('/share/')
     const userId = await getCurrentUserId()
@@ -31,6 +31,7 @@ export async function POST(req: Request) {
       message: messages[messages.length - 1]?.content || '',
       id: chatId,
       messages: messages,
+      model: model, // Include selected model
       // Include any additional fields the gateway might need
       ...payload
     }
