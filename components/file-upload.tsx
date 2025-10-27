@@ -12,6 +12,32 @@ interface FileUploadProps {
   disabled?: boolean
 }
 
+// Allowed file extensions
+const ALLOWED_EXTENSIONS = [
+  // Images
+  '.jpg',
+  '.jpeg',
+  '.png',
+  // Documents
+  '.pdf'
+]
+
+const ALLOWED_MIME_TYPES = [
+  // Images
+  'image/jpeg',
+  'image/png',
+  // Documents
+  'application/pdf'
+]
+
+const isFileAllowed = (file: File): boolean => {
+  const extension = '.' + file.name.split('.').pop()?.toLowerCase()
+  return (
+    ALLOWED_EXTENSIONS.includes(extension) ||
+    ALLOWED_MIME_TYPES.includes(file.type)
+  )
+}
+
 export function FileUpload({
   files,
   onFilesChange,
@@ -19,11 +45,33 @@ export function FileUpload({
 }: FileUploadProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
   const handleFileSelect = (selectedFiles: FileList | null) => {
     if (!selectedFiles) return
-    const newFiles = Array.from(selectedFiles)
-    onFilesChange([...files, ...newFiles])
+
+    const [allowedFiles, rejectedFiles] = Array.from(selectedFiles).reduce(
+      ([allowed, rejected], file) => {
+        if (isFileAllowed(file)) {
+          allowed.push(file)
+        } else {
+          rejected.push(file.name)
+        }
+        return [allowed, rejected]
+      },
+      [[], []] as [File[], string[]]
+    )
+
+    if (rejectedFiles.length > 0) {
+      setErrorMessage(
+        `These files are not supported: ${rejectedFiles.join(', ')}`
+      )
+      setTimeout(() => setErrorMessage(null), 5000)
+    }
+
+    if (allowedFiles.length > 0) {
+      onFilesChange([...files, ...allowedFiles])
+    }
   }
 
   const handleFileRemove = (index: number) => {
@@ -84,13 +132,14 @@ export function FileUpload({
             </button>
           </p>
           <p className="text-xs text-muted-foreground">
-            Supports common file types
+            Images: JPG, PNG • Documents: PDF
           </p>
           <input
             ref={fileInputRef}
             type="file"
             className="hidden"
             multiple
+            accept=".jpg,.jpeg,.png,.pdf"
             onChange={e => handleFileSelect(e.target.files)}
             disabled={disabled}
           />
@@ -139,9 +188,17 @@ export function FileUpload({
             type="file"
             className="hidden"
             multiple
+            accept=".jpg,.jpeg,.png,.pdf"
             onChange={e => handleFileSelect(e.target.files)}
             disabled={disabled}
           />
+        </div>
+      )}
+
+      {/* Error message */}
+      {errorMessage && (
+        <div className="text-sm text-destructive bg-destructive/10 p-2 rounded-md">
+          {errorMessage}
         </div>
       )}
     </div>
