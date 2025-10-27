@@ -6,7 +6,7 @@ export async function POST(req: Request) {
   try {
     const gatewayUrl = process.env.NEXT_PUBLIC_CHAT_GATEWAY_URL
     const payload = await req.json()
-    const { messages, id: chatId, model } = payload
+    const { messages, id: chatId, model, files } = payload
     const referer = req.headers.get('referer')
     const isSharePage = referer?.includes('/share/')
     const userId = await getCurrentUserId()
@@ -32,6 +32,7 @@ export async function POST(req: Request) {
       id: chatId,
       messages: messages,
       model: model, // Include selected model
+      files: files || undefined, // Include files if present
       // Include any additional fields the gateway might need
       ...payload
     }

@@ -31,6 +31,7 @@ export function Chat({
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
   const [selectedModel, setSelectedModel] = useState('model-a')
+  const [files, setFiles] = useState<File[]>([])
 
   const {
     messages,
@@ -50,7 +51,8 @@ export function Chat({
     id: id, // Use unique chat ID for isolated streaming
     body: {
       id,
-      model: selectedModel
+      model: selectedModel,
+      files: files.length > 0 ? files : undefined
     },
     onFinish: () => {
       // Only update URL if we're on the home page (new chat)
@@ -240,6 +242,8 @@ export function Chat({
         append={append}
         models={[]}
         onModelChange={setSelectedModel}
+        files={files}
+        onFilesChange={setFiles}
         showScrollToBottomButton={!isAtBottom}
         scrollContainerRef={scrollContainerRef}
       />
