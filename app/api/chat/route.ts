@@ -2,11 +2,75 @@ import { getCurrentUserId } from '@/lib/auth/get-current-user'
 
 export const maxDuration = 30
 
+type ParsedFile = {
+  name: string
+  type: string
+  size: number
+  content: string // Base64 encoded file content
+}
+
 export async function POST(req: Request) {
   try {
     const gatewayUrl = process.env.NEXT_PUBLIC_CHAT_GATEWAY_URL
-    const payload = await req.json()
-    const { messages, id: chatId, model, files } = payload
+    const contentType = req.headers.get('content-type') || ''
+
+    let messages, chatId, model, files
+
+    // Check if FormData or JSON
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await req.formData()
+
+      // Extract metadata
+      const metadataStr = formData.get('metadata') as string
+      const metadata = JSON.parse(metadataStr)
+      messages = metadata.messages
+      chatId = metadata.id
+      model = metadata.model
+
+      // Extract files from FormData
+      const filesArray: any[] = []
+      for (const [key, value] of formData.entries()) {
+        if (key.startsWith('file_')) {
+          const file = value as File
+          const arrayBuffer = await file.arrayBuffer()
+          const uint8Array = new Uint8Array(arrayBuffer)
+          filesArray.push({
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            content: Array.from(uint8Array)
+          })
+        }
+      }
+      files = filesArray.length > 0 ? filesArray : undefined
+    } else {
+      const payload = await req.json()
+      messages = payload.messages
+      chatId = payload.id
+      model = payload.model
+      files = payload.files
+    }
+
+    // Parse file contents if files are present
+    let parsedFiles: ParsedFile[] | undefined = undefined
+    if (files && files.length > 0) {
+      parsedFiles = files.map((fileData: any): ParsedFile => {
+        // Convert number array back to ArrayBuffer
+        const uint8Array = new Uint8Array(fileData.content)
+        const arrayBuffer = uint8Array.buffer
+
+        // Convert ArrayBuffer to base64 for JSON serialization
+        const base64String = Buffer.from(arrayBuffer).toString('base64')
+
+        return {
+          name: fileData.name,
+          type: fileData.type,
+          size: fileData.size,
+          content: base64String // Base64 encoded file content for JSON transmission
+        }
+      })
+    }
+
     const referer = req.headers.get('referer')
     const isSharePage = referer?.includes('/share/')
     const userId = await getCurrentUserId()
@@ -32,9 +96,7 @@ export async function POST(req: Request) {
       id: chatId,
       messages: messages,
       model: model, // Include selected model
-      files: files || undefined, // Include files if present
-      // Include any additional fields the gateway might need
-      ...payload
+      files: parsedFiles || undefined // Include parsed files with actual content if present
     }
 
     // Proxy the request to the external chat gateway
@@ -47,18 +109,18 @@ export async function POST(req: Request) {
     })
 
     // Check if the response is streaming or JSON
-    const contentType = upstream.headers.get('content-type') || ''
+    const responseContentType = upstream.headers.get('content-type') || ''
 
     if (
-      contentType.includes('text/event-stream') ||
-      contentType.includes('application/x-ndjson')
+      responseContentType.includes('text/event-stream') ||
+      responseContentType.includes('application/x-ndjson')
     ) {
       // Stream response through unchanged
       return new Response(upstream.body, {
         status: upstream.status,
         statusText: upstream.statusText,
         headers: {
-          'content-type': contentType
+          'content-type': responseContentType
         }
       })
     } else {

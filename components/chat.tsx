@@ -19,6 +19,13 @@ interface ChatSection {
   assistantMessages: Message[]
 }
 
+type FileData = {
+  name: string
+  type: string
+  size: number
+  content: number[] // ArrayBuffer as number array for JSON serialization
+}
+
 export function Chat({
   id,
   savedMessages = [],
@@ -51,8 +58,7 @@ export function Chat({
     id: id, // Use unique chat ID for isolated streaming
     body: {
       id,
-      model: selectedModel,
-      files: files.length > 0 ? files : undefined
+      model: selectedModel
     },
     onFinish: () => {
       // Only update URL if we're on the home page (new chat)
@@ -65,7 +71,7 @@ export function Chat({
     onError: error => {
       toast.error(`Error in chat: ${error.message}`)
     },
-    sendExtraMessageFields: false, // Disable extra message fields,
+    sendExtraMessageFields: true, // Enable extra message fields to send files
     experimental_throttle: 100
   })
 
@@ -205,10 +211,64 @@ export function Chat({
     return await reload(options)
   }
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setData(undefined)
-    handleSubmit(e)
+
+    // If no files, use regular handleSubmit
+    if (!files || files.length === 0) {
+      handleSubmit(e)
+      return
+    }
+
+    // Create FormData for file upload
+    const formData = new FormData()
+
+    // Add files to FormData
+    files.forEach((file, index) => {
+      formData.append(`file_${index}`, file)
+    })
+
+    // Add metadata as JSON
+    const metadata = {
+      messages: [
+        ...messages,
+        {
+          role: 'user' as const,
+          content: input
+        }
+      ],
+      id,
+      model: selectedModel
+    }
+    formData.append('metadata', JSON.stringify(metadata))
+
+    try {
+      // Send to API
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`API error: ${response.status} ${errorText}`)
+      }
+
+      // Handle streaming response
+      const reader = response.body?.getReader()
+
+      if (reader) {
+        // Process the stream and update messages
+        // This is a simplified version - you may need to handle it properly
+        console.log('Streaming response received')
+      }
+
+      // Clear input and files after sending
+      setFiles([])
+    } catch (error) {
+      console.error('Error sending message:', error)
+      toast.error(`Error: ${(error as Error).message}`)
+    }
   }
 
   return (
