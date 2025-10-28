@@ -1,9 +1,11 @@
 'use client'
 
-import { FileIcon, X } from 'lucide-react'
 import { useRef, useState } from 'react'
 
+import { FileIcon, X } from 'lucide-react'
+
 import { cn } from '@/lib/utils'
+
 import { Button } from './ui/button'
 
 interface FileUploadProps {
