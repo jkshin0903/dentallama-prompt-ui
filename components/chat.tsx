@@ -220,23 +220,38 @@ export function Chat({
       return
     }
 
+    // Capture files before clearing
+    const filesToUpload = [...files]
+
+    // Add user message immediately
+    const userMessageContent = input
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: userMessageContent
+    }
+
+    // Add the user message to the chat
+    const updatedMessages = [...messages, userMessage]
+    setMessages(updatedMessages)
+
+    // Clear input and files after adding message
+    setFiles([])
+    handleInputChange({
+      target: { value: '' }
+    } as React.ChangeEvent<HTMLTextAreaElement>)
+
     // Create FormData for file upload
     const formData = new FormData()
 
     // Add files to FormData
-    files.forEach((file, index) => {
+    filesToUpload.forEach((file, index) => {
       formData.append(`file_${index}`, file)
     })
 
     // Add metadata as JSON
     const metadata = {
-      messages: [
-        ...messages,
-        {
-          role: 'user' as const,
-          content: input
-        }
-      ],
+      messages: updatedMessages,
       id,
       model: selectedModel
     }
@@ -254,17 +269,31 @@ export function Chat({
         throw new Error(`API error: ${response.status} ${errorText}`)
       }
 
-      // Handle streaming response
-      const reader = response.body?.getReader()
+      // Parse JSON response
+      const jsonResponse = await response.json()
 
-      if (reader) {
-        // Process the stream and update messages
-        // This is a simplified version - you may need to handle it properly
-        console.log('Streaming response received')
+      // Extract the response content from JSON
+      const assistantContent =
+        jsonResponse.response ||
+        jsonResponse.message ||
+        jsonResponse.content ||
+        ''
+
+      // Create assistant message
+      const assistantMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: assistantContent
       }
 
-      // Clear input and files after sending
-      setFiles([])
+      // Add assistant message to chat
+      setMessages([...updatedMessages, assistantMessage])
+
+      // On finish, update URL if we're on the home page (new chat)
+      if (window.location.pathname === '/') {
+        window.history.replaceState({}, '', `/search/${id}`)
+      }
+      window.dispatchEvent(new CustomEvent('chat-history-updated'))
     } catch (error) {
       console.error('Error sending message:', error)
       toast.error(`Error: ${(error as Error).message}`)
