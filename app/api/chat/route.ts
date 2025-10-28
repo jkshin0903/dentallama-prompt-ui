@@ -108,11 +108,64 @@ export async function POST(req: Request) {
       body: JSON.stringify(gatewayPayload)
     })
 
-    // Pass upstream response directly without modification
+    // If upstream returns JSON, convert to SSE format expected by useChat.
+    const upstreamContentType = upstream.headers.get('content-type') || ''
+    if (upstreamContentType.includes('application/json')) {
+      const responseText = await upstream.text()
+
+      try {
+        const jsonResponse = JSON.parse(responseText)
+        const stream = new ReadableStream({
+          start(controller) {
+            const response =
+              jsonResponse.response ||
+              jsonResponse.message ||
+              jsonResponse.content ||
+              responseText
+
+            const chunk = `0:"${response.replace(/\"/g, '\\\"').replace(/\n/g, '\\n')}"\n`
+            controller.enqueue(new TextEncoder().encode(chunk))
+            controller.close()
+          }
+        })
+
+        return new Response(stream, {
+          status: upstream.status,
+          statusText: upstream.statusText,
+          headers: {
+            'content-type': 'text/event-stream',
+            'cache-control': 'no-cache',
+            connection: 'keep-alive'
+          }
+        })
+      } catch (err) {
+        // Fallback: send raw text as one SSE chunk
+        const stream = new ReadableStream({
+          start(controller) {
+            const chunk = `0:"${responseText.replace(/\"/g, '\\\"').replace(/\n/g, '\\n')}"\n`
+            controller.enqueue(new TextEncoder().encode(chunk))
+            controller.close()
+          }
+        })
+        return new Response(stream, {
+          status: upstream.status,
+          statusText: upstream.statusText,
+          headers: {
+            'content-type': 'text/event-stream',
+            'cache-control': 'no-cache',
+            connection: 'keep-alive'
+          }
+        })
+      }
+    }
+
+    // Otherwise, stream response through unchanged (supports text/event-stream, etc.)
     return new Response(upstream.body, {
       status: upstream.status,
       statusText: upstream.statusText,
-      headers: upstream.headers
+      headers: {
+        'content-type': upstreamContentType || 'text/plain; charset=utf-8'
+      }
     })
   } catch (error) {
     console.error('API route error:', error)

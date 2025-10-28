@@ -225,6 +225,7 @@ export function Chat({
 
     // Add user message immediately
     const userMessageContent = input
+
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -233,13 +234,6 @@ export function Chat({
 
     // Add the user message to the chat
     const updatedMessages = [...messages, userMessage]
-    setMessages(updatedMessages)
-
-    // Clear input and files after adding message
-    setFiles([])
-    handleInputChange({
-      target: { value: '' }
-    } as React.ChangeEvent<HTMLTextAreaElement>)
 
     // Create FormData for file upload
     const formData = new FormData()
@@ -257,6 +251,12 @@ export function Chat({
     }
     formData.append('metadata', JSON.stringify(metadata))
 
+    // Clear input and files after handling response
+    setFiles([])
+    handleInputChange({
+      target: { value: '' }
+    } as React.ChangeEvent<HTMLTextAreaElement>)
+
     try {
       // Send to API
       const response = await fetch('/api/chat', {
@@ -269,24 +269,25 @@ export function Chat({
         throw new Error(`API error: ${response.status} ${errorText}`)
       }
 
-      // Parse JSON response
-      const jsonResponse = await response.json()
+      // Parse JSON response and append assistant message
+      // Important: read the body ONCE to avoid "body stream already read"
+      const responseText = await response.text()
+      let assistantContent = ''
+      try {
+        const json = JSON.parse(responseText)
+        assistantContent =
+          json?.response ?? json?.message ?? json?.content ?? ''
+      } catch {
+        // Not JSON; use raw text
+        assistantContent = responseText
+      }
 
-      // Extract the response content from JSON
-      const assistantContent =
-        jsonResponse.response ||
-        jsonResponse.message ||
-        jsonResponse.content ||
-        ''
-
-      // Create assistant message
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
         role: 'assistant',
         content: assistantContent
       }
 
-      // Add assistant message to chat
       setMessages([...updatedMessages, assistantMessage])
 
       // On finish, update URL if we're on the home page (new chat)
