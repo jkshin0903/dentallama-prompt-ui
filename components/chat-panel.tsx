@@ -1,11 +1,10 @@
 'use client'
 
+import { Message } from 'ai'
+import { ArrowUp, ChevronDown, MessageCirclePlus, Square } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Textarea from 'react-textarea-autosize'
-
-import { Message } from 'ai'
-import { ArrowUp, ChevronDown, MessageCirclePlus, Square } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
