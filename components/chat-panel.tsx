@@ -13,6 +13,7 @@ import { useArtifact } from './artifact/artifact-context'
 import { Button } from './ui/button'
 import { IconLogo } from './ui/icons'
 import { EmptyScreen } from './empty-screen'
+import { FileUpload } from './file-upload'
 import { ModelSelector } from './model-selector'
 import { SearchModeToggle } from './search-mode-toggle'
 
@@ -27,6 +28,9 @@ interface ChatPanelProps {
   stop: () => void
   append: (message: any) => void
   models?: any[]
+  onModelChange?: (model: string) => void
+  files?: File[]
+  onFilesChange?: (files: File[]) => void
   /** Whether to show the scroll to bottom button */
   showScrollToBottomButton: boolean
   /** Reference to the scroll container */
@@ -44,6 +48,9 @@ export function ChatPanel({
   stop,
   append,
   models,
+  onModelChange,
+  files = [],
+  onFilesChange,
   showScrollToBottomButton,
   scrollContainerRef
 }: ChatPanelProps) {
@@ -143,6 +150,17 @@ export function ChatPanel({
         )}
 
         <div className="relative flex flex-col w-full gap-2 bg-muted rounded-3xl border border-input">
+          {/* File upload section */}
+          {onFilesChange && (
+            <div className="px-4 pt-4">
+              <FileUpload
+                files={files}
+                onFilesChange={onFilesChange}
+                disabled={isLoading || isToolInvocationInProgress()}
+              />
+            </div>
+          )}
+
           <Textarea
             ref={inputRef}
             name="input"
@@ -183,7 +201,7 @@ export function ChatPanel({
           {/* Bottom menu area */}
           <div className="flex items-center justify-between p-3">
             <div className="flex items-center gap-2">
-              <ModelSelector models={[]} />
+              <ModelSelector models={[]} onModelChange={onModelChange} />
               <SearchModeToggle />
             </div>
             <div className="flex items-center gap-2">

@@ -19,6 +19,13 @@ interface ChatSection {
   assistantMessages: Message[]
 }
 
+type FileData = {
+  name: string
+  type: string
+  size: number
+  content: number[] // ArrayBuffer as number array for JSON serialization
+}
+
 export function Chat({
   id,
   savedMessages = [],
@@ -30,6 +37,8 @@ export function Chat({
 }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
+  const [selectedModel, setSelectedModel] = useState('model-a')
+  const [files, setFiles] = useState<File[]>([])
 
   const {
     messages,
@@ -48,7 +57,8 @@ export function Chat({
     initialMessages: savedMessages,
     id: id, // Use unique chat ID for isolated streaming
     body: {
-      id
+      id,
+      model: selectedModel
     },
     onFinish: () => {
       // Only update URL if we're on the home page (new chat)
@@ -61,7 +71,7 @@ export function Chat({
     onError: error => {
       toast.error(`Error in chat: ${error.message}`)
     },
-    sendExtraMessageFields: false, // Disable extra message fields,
+    sendExtraMessageFields: true, // Enable extra message fields to send files
     experimental_throttle: 100
   })
 
@@ -201,10 +211,94 @@ export function Chat({
     return await reload(options)
   }
 
-  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setData(undefined)
-    handleSubmit(e)
+
+    // If no files, use regular handleSubmit
+    if (!files || files.length === 0) {
+      handleSubmit(e)
+      return
+    }
+
+    // Capture files before clearing
+    const filesToUpload = [...files]
+
+    // Add user message immediately
+    const userMessageContent = input
+
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: userMessageContent
+    }
+
+    // Add the user message to the chat
+    const updatedMessages = [...messages, userMessage]
+
+    // Create FormData for file upload
+    const formData = new FormData()
+
+    // Add files to FormData
+    filesToUpload.forEach((file, index) => {
+      formData.append(`file_${index}`, file)
+    })
+
+    // Add metadata as JSON
+    const metadata = {
+      messages: updatedMessages,
+      id,
+      model: selectedModel
+    }
+    formData.append('metadata', JSON.stringify(metadata))
+
+    // Clear input and files after handling response
+    setFiles([])
+    handleInputChange({
+      target: { value: '' }
+    } as React.ChangeEvent<HTMLTextAreaElement>)
+
+    try {
+      // Send to API
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        body: formData
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`API error: ${response.status} ${errorText}`)
+      }
+
+      // Parse JSON response and append assistant message
+      // Important: read the body ONCE to avoid "body stream already read"
+      const responseText = await response.text()
+      let assistantContent = ''
+      try {
+        const json = JSON.parse(responseText)
+        assistantContent =
+          json?.response ?? json?.message ?? json?.content ?? ''
+      } catch {
+        // Not JSON; use raw text
+        assistantContent = responseText
+      }
+
+      const assistantMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: assistantContent
+      }
+
+      setMessages([...updatedMessages, assistantMessage])
+
+      // On finish, update URL if we're on the home page (new chat)
+      if (window.location.pathname === '/') {
+        window.history.replaceState({}, '', `/search/${id}`)
+      }
+      window.dispatchEvent(new CustomEvent('chat-history-updated'))
+    } catch (error) {
+      console.error('Error sending message:', error)
+      toast.error(`Error: ${(error as Error).message}`)
+    }
   }
 
   return (
@@ -237,6 +331,9 @@ export function Chat({
         query={query}
         append={append}
         models={[]}
+        onModelChange={setSelectedModel}
+        files={files}
+        onFilesChange={setFiles}
         showScrollToBottomButton={!isAtBottom}
         scrollContainerRef={scrollContainerRef}
       />
