@@ -11,7 +11,7 @@ type ParsedFile = {
 
 export async function POST(req: Request) {
   try {
-    const gatewayUrl = process.env.NEXT_PUBLIC_CHAT_GATEWAY_URL
+    const gatewayUrl = process.env.CHAT_GATEWAY_URL
     const contentType = req.headers.get('content-type') || ''
 
     let messages, chatId, model, files
