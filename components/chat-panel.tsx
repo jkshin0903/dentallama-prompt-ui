@@ -1,9 +1,9 @@
 'use client'
 
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Textarea from 'react-textarea-autosize'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 import { User } from '@supabase/supabase-js'
 import { Message } from 'ai'
@@ -18,12 +18,12 @@ import {
 import { cn } from '@/lib/utils'
 
 import { useArtifact } from './artifact/artifact-context'
+import { Button } from './ui/button'
+import { IconLogo } from './ui/icons'
 import { EmptyScreen } from './empty-screen'
 import { FileUpload } from './file-upload'
 import { ModelSelector } from './model-selector'
 import { SearchModeToggle } from './search-mode-toggle'
-import { Button } from './ui/button'
-import { IconLogo } from './ui/icons'
 
 interface ChatPanelProps {
   input: string
