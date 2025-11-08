@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useChat } from '@ai-sdk/react'
+import { User } from '@supabase/supabase-js'
 import { ChatRequestOptions } from 'ai'
 import { Message } from 'ai/react'
-import { User } from '@supabase/supabase-js'
 import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'

@@ -1,7 +1,8 @@
 import { generateId } from 'ai'
 
-import { Chat } from '@/components/chat'
 import { getCurrentUser } from '@/lib/auth/get-current-user'
+
+import { Chat } from '@/components/chat'
 
 export default async function Page() {
   const id = generateId()

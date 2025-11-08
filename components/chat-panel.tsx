@@ -1,23 +1,29 @@
 'use client'
 
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Textarea from 'react-textarea-autosize'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 
-import { Message } from 'ai'
 import { User } from '@supabase/supabase-js'
-import { ArrowUp, ChevronDown, MessageCirclePlus, Square, LogIn } from 'lucide-react'
+import { Message } from 'ai'
+import {
+  ArrowUp,
+  ChevronDown,
+  LogIn,
+  MessageCirclePlus,
+  Square
+} from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
 import { useArtifact } from './artifact/artifact-context'
-import { Button } from './ui/button'
-import { IconLogo } from './ui/icons'
 import { EmptyScreen } from './empty-screen'
 import { FileUpload } from './file-upload'
 import { ModelSelector } from './model-selector'
 import { SearchModeToggle } from './search-mode-toggle'
+import { Button } from './ui/button'
+import { IconLogo } from './ui/icons'
 
 interface ChatPanelProps {
   input: string
@@ -191,7 +197,9 @@ export function ChatPanel({
             tabIndex={0}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
-            placeholder={user ? 'Ask a question...' : 'Sign in to ask a question...'}
+            placeholder={
+              user ? 'Ask a question...' : 'Sign in to ask a question...'
+            }
             spellCheck={false}
             value={input}
             disabled={isInputDisabled}
