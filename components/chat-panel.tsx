@@ -3,9 +3,11 @@
 import { useEffect, useRef, useState } from 'react'
 import Textarea from 'react-textarea-autosize'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 import { Message } from 'ai'
-import { ArrowUp, ChevronDown, MessageCirclePlus, Square } from 'lucide-react'
+import { User } from '@supabase/supabase-js'
+import { ArrowUp, ChevronDown, MessageCirclePlus, Square, LogIn } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -35,6 +37,8 @@ interface ChatPanelProps {
   showScrollToBottomButton: boolean
   /** Reference to the scroll container */
   scrollContainerRef: React.RefObject<HTMLDivElement>
+  /** Current user (null if not logged in) */
+  user: User | null
 }
 
 export function ChatPanel({
@@ -52,7 +56,8 @@ export function ChatPanel({
   files = [],
   onFilesChange,
   showScrollToBottomButton,
-  scrollContainerRef
+  scrollContainerRef,
+  user
 }: ChatPanelProps) {
   const [showEmptyScreen, setShowEmptyScreen] = useState(false)
   const router = useRouter()
@@ -92,6 +97,8 @@ export function ChatPanel({
       lastPart?.toolInvocation?.state === 'call'
     )
   }
+
+  const isInputDisabled = isLoading || isToolInvocationInProgress() || !user
 
   // if query is not empty, submit the query
   useEffect(() => {
@@ -156,8 +163,23 @@ export function ChatPanel({
               <FileUpload
                 files={files}
                 onFilesChange={onFilesChange}
-                disabled={isLoading || isToolInvocationInProgress()}
+                disabled={isInputDisabled}
               />
+            </div>
+          )}
+
+          {!user && (
+            <div className="px-4 pt-2 pb-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-background/50 rounded-lg p-3 border border-dashed">
+                <LogIn className="size-4" />
+                <span>Please sign in to start chatting</span>
+                <Link
+                  href="/auth/login"
+                  className="ml-auto text-primary hover:underline font-medium"
+                >
+                  Sign in
+                </Link>
+              </div>
             </div>
           )}
 
@@ -169,14 +191,16 @@ export function ChatPanel({
             tabIndex={0}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
-            placeholder="Ask a question..."
+            placeholder={user ? 'Ask a question...' : 'Sign in to ask a question...'}
             spellCheck={false}
             value={input}
-            disabled={isLoading || isToolInvocationInProgress()}
+            disabled={isInputDisabled}
             className="resize-none w-full min-h-12 bg-transparent border-0 p-4 text-sm placeholder:text-muted-foreground focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50"
             onChange={e => {
-              handleInputChange(e)
-              setShowEmptyScreen(e.target.value.length === 0)
+              if (user) {
+                handleInputChange(e)
+                setShowEmptyScreen(e.target.value.length === 0)
+              }
             }}
             onKeyDown={e => {
               if (
@@ -185,7 +209,7 @@ export function ChatPanel({
                 !isComposing &&
                 !enterDisabled
               ) {
-                if (input.trim().length === 0) {
+                if (input.trim().length === 0 || !user) {
                   e.preventDefault()
                   return
                 }
@@ -194,7 +218,14 @@ export function ChatPanel({
                 textarea.form?.requestSubmit()
               }
             }}
-            onFocus={() => setShowEmptyScreen(true)}
+            onFocus={() => {
+              if (user) {
+                setShowEmptyScreen(true)
+              } else {
+                inputRef.current?.blur()
+                router.push('/auth/login')
+              }
+            }}
             onBlur={() => setShowEmptyScreen(false)}
           />
 
@@ -224,9 +255,16 @@ export function ChatPanel({
                 className={cn(isLoading && 'animate-pulse', 'rounded-full')}
                 disabled={
                   (input.length === 0 && !isLoading) ||
-                  isToolInvocationInProgress()
+                  isToolInvocationInProgress() ||
+                  !user
                 }
-                onClick={isLoading ? stop : undefined}
+                onClick={
+                  isLoading
+                    ? stop
+                    : !user
+                      ? () => router.push('/auth/login')
+                      : undefined
+                }
               >
                 {isLoading ? <Square size={20} /> : <ArrowUp size={20} />}
               </Button>
