@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useChat } from '@ai-sdk/react'
 import { ChatRequestOptions } from 'ai'
 import { Message } from 'ai/react'
+import { User } from '@supabase/supabase-js'
 import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
@@ -29,11 +30,13 @@ type FileData = {
 export function Chat({
   id,
   savedMessages = [],
-  query
+  query,
+  user
 }: {
   id: string
   savedMessages?: Message[]
   query?: string
+  user: User | null
 }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
@@ -336,6 +339,7 @@ export function Chat({
         onFilesChange={setFiles}
         showScrollToBottomButton={!isAtBottom}
         scrollContainerRef={scrollContainerRef}
+        user={user}
       />
     </div>
   )
