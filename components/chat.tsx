@@ -9,6 +9,8 @@ import { Message } from 'ai/react'
 import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
+import { parseDiagnosisFile } from '@/lib/utils/parse-diagnosis-file'
+import { parseMeasurementsFile } from '@/lib/utils/parse-measurements-file'
 
 import { ChatMessages } from './chat-messages'
 import { ChatPanel } from './chat-panel'
@@ -240,19 +242,57 @@ export function Chat({
         return
       }
 
-      // Capture files before clearing
-      const filesToUpload: File[] = []
+      // Parse diagnosis and measurements files
+      let diagnosis: string | null = null
+      let measurements: Record<string, number | null> = {}
+
       if (diagnosisFiles.diagnosis) {
-        filesToUpload.push(diagnosisFiles.diagnosis)
+        diagnosis = await parseDiagnosisFile(diagnosisFiles.diagnosis)
       }
+
       if (diagnosisFiles.measurements) {
-        filesToUpload.push(diagnosisFiles.measurements)
+        measurements = await parseMeasurementsFile(diagnosisFiles.measurements)
       }
-      filesToUpload.push(...diagnosisFiles.images)
+
+      // Build content as JSON string
+      const contentData: {
+        diagnosis?: string
+        measurements?: Record<string, number | null>
+        use_rag: boolean
+      } = {
+        use_rag: true
+      }
+
+      if (diagnosis) {
+        contentData.diagnosis = diagnosis
+      }
+
+      if (Object.keys(measurements).length > 0) {
+        contentData.measurements = measurements
+      }
+
+      const userMessageContent = JSON.stringify(contentData)
+
+      // Convert image files to base64
+      const imageFiles: Array<{
+        name: string
+        type: string
+        content: string
+      }> = []
+
+      for (const image of diagnosisFiles.images) {
+        const arrayBuffer = await image.arrayBuffer()
+        const base64 = btoa(
+          String.fromCharCode(...new Uint8Array(arrayBuffer))
+        )
+        imageFiles.push({
+          name: image.name,
+          type: image.type,
+          content: base64
+        })
+      }
 
       // Add user message immediately
-      const userMessageContent = input
-
       const userMessage: Message = {
         id: crypto.randomUUID(),
         role: 'user',
@@ -262,34 +302,13 @@ export function Chat({
       // Add the user message to the chat
       const updatedMessages = [...messages, userMessage]
 
-      // Create FormData for file upload
-      const formData = new FormData()
-
-      // Add files to FormData with type prefixes
-      let fileIndex = 0
-      if (diagnosisFiles.diagnosis) {
-        formData.append(`file_diagnosis_${fileIndex}`, diagnosisFiles.diagnosis)
-        fileIndex++
-      }
-      if (diagnosisFiles.measurements) {
-        formData.append(
-          `file_measurements_${fileIndex}`,
-          diagnosisFiles.measurements
-        )
-        fileIndex++
-      }
-      diagnosisFiles.images.forEach((image, index) => {
-        formData.append(`file_image_${fileIndex}`, image)
-        fileIndex++
-      })
-
-      // Add metadata as JSON
-      const metadata = {
+      // Create JSON payload for API
+      const payload = {
         messages: updatedMessages,
         id,
-        model: selectedModel
+        model: selectedModel,
+        files: imageFiles.length > 0 ? imageFiles : undefined
       }
-      formData.append('metadata', JSON.stringify(metadata))
 
       // Clear input and files after handling response
       setDiagnosisFiles({ images: [] })
@@ -298,10 +317,13 @@ export function Chat({
       } as React.ChangeEvent<HTMLTextAreaElement>)
 
       try {
-        // Send to API
+        // Send to API as JSON
         const response = await fetch('/api/chat', {
           method: 'POST',
-          body: formData
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(payload)
         })
 
         if (!response.ok) {

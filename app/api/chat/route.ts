@@ -55,17 +55,28 @@ export async function POST(req: Request) {
     let parsedFiles: ParsedFile[] | undefined = undefined
     if (files && files.length > 0) {
       parsedFiles = files.map((fileData: any): ParsedFile => {
-        // Convert number array back to ArrayBuffer
-        const uint8Array = new Uint8Array(fileData.content)
-        const arrayBuffer = uint8Array.buffer
+        let base64String: string
 
-        // Convert ArrayBuffer to base64 for JSON serialization
-        const base64String = Buffer.from(arrayBuffer).toString('base64')
+        // Check if content is already base64 string or number array
+        if (typeof fileData.content === 'string') {
+          // Already base64 encoded
+          base64String = fileData.content
+        } else if (Array.isArray(fileData.content)) {
+          // Convert number array back to ArrayBuffer
+          const uint8Array = new Uint8Array(fileData.content)
+          const arrayBuffer = uint8Array.buffer
+
+          // Convert ArrayBuffer to base64 for JSON serialization
+          base64String = Buffer.from(arrayBuffer).toString('base64')
+        } else {
+          // Fallback: try to convert to base64
+          base64String = Buffer.from(fileData.content).toString('base64')
+        }
 
         return {
           name: fileData.name,
           type: fileData.type,
-          size: fileData.size,
+          size: fileData.size || 0,
           content: base64String // Base64 encoded file content for JSON transmission
         }
       })
