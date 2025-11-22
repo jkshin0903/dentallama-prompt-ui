@@ -16,6 +16,7 @@ import { Button } from './ui/button'
 import { IconLogo } from './ui/icons'
 import { EmptyScreen } from './empty-screen'
 import { FileUpload } from './file-upload'
+import { DiagnosisFileUpload } from './diagnosis-file-upload'
 import { ModelSelector } from './model-selector'
 import { SearchModeToggle } from './search-mode-toggle'
 
@@ -30,9 +31,20 @@ interface ChatPanelProps {
   stop: () => void
   append: (message: any) => void
   models?: any[]
+  selectedModel?: string
   onModelChange?: (model: string) => void
   files?: File[]
   onFilesChange?: (files: File[]) => void
+  diagnosisFiles?: {
+    diagnosis?: File
+    measurements?: File
+    images: File[]
+  }
+  onDiagnosisFilesChange?: (files: {
+    diagnosis?: File
+    measurements?: File
+    images: File[]
+  }) => void
   /** Whether to show the scroll to bottom button */
   showScrollToBottomButton: boolean
   /** Reference to the scroll container */
@@ -52,9 +64,12 @@ export function ChatPanel({
   stop,
   append,
   models,
+  selectedModel,
   onModelChange,
   files = [],
   onFilesChange,
+  diagnosisFiles = { images: [] },
+  onDiagnosisFilesChange,
   showScrollToBottomButton,
   scrollContainerRef,
   user
@@ -157,16 +172,29 @@ export function ChatPanel({
         )}
 
         <div className="relative flex flex-col w-full gap-2 bg-muted rounded-3xl border border-input">
-          {/* File upload section */}
-          {onFilesChange && (
-            <div className="px-4 pt-4">
-              <FileUpload
-                files={files}
-                onFilesChange={onFilesChange}
-                disabled={isInputDisabled}
-              />
-            </div>
-          )}
+          {/* File upload section - only show for treatment-plan-gen model */}
+          {selectedModel === 'treatment-plan-gen' &&
+            onDiagnosisFilesChange && (
+              <div className="px-4 pt-4">
+                <DiagnosisFileUpload
+                  files={diagnosisFiles}
+                  onFilesChange={onDiagnosisFilesChange}
+                  disabled={isInputDisabled}
+                />
+              </div>
+            )}
+          {/* File upload section - for other models (hidden for now) */}
+          {selectedModel !== 'treatment-plan-gen' &&
+            onFilesChange &&
+            false && (
+              <div className="px-4 pt-4">
+                <FileUpload
+                  files={files}
+                  onFilesChange={onFilesChange}
+                  disabled={isInputDisabled}
+                />
+              </div>
+            )}
 
           {!user && (
             <div className="px-4 pt-2 pb-2">

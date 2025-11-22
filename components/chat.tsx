@@ -3,9 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import { useChat } from '@ai-sdk/react'
+import { User } from '@supabase/supabase-js'
 import { ChatRequestOptions } from 'ai'
 import { Message } from 'ai/react'
-import { User } from '@supabase/supabase-js'
 import { toast } from 'sonner'
 
 import { cn } from '@/lib/utils'
@@ -42,6 +42,11 @@ export function Chat({
   const [isAtBottom, setIsAtBottom] = useState(true)
   const [selectedModel, setSelectedModel] = useState('treatment-plan-gen')
   const [files, setFiles] = useState<File[]>([])
+  const [diagnosisFiles, setDiagnosisFiles] = useState<{
+    diagnosis?: File
+    measurements?: File
+    images: File[]
+  }>({ images: [] })
 
   const {
     messages,
@@ -214,9 +219,130 @@ export function Chat({
     return await reload(options)
   }
 
+  // Reset files when model changes
+  useEffect(() => {
+    setFiles([])
+    setDiagnosisFiles({ images: [] })
+  }, [selectedModel])
+
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
+    // For treatment-plan-gen model, check diagnosis files
+    if (selectedModel === 'treatment-plan-gen') {
+      const hasDiagnosisFiles =
+        diagnosisFiles.diagnosis ||
+        diagnosisFiles.measurements ||
+        diagnosisFiles.images.length > 0
+
+      if (!hasDiagnosisFiles) {
+        handleSubmit(e)
+        return
+      }
+
+      // Capture files before clearing
+      const filesToUpload: File[] = []
+      if (diagnosisFiles.diagnosis) {
+        filesToUpload.push(diagnosisFiles.diagnosis)
+      }
+      if (diagnosisFiles.measurements) {
+        filesToUpload.push(diagnosisFiles.measurements)
+      }
+      filesToUpload.push(...diagnosisFiles.images)
+
+      // Add user message immediately
+      const userMessageContent = input
+
+      const userMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'user',
+        content: userMessageContent
+      }
+
+      // Add the user message to the chat
+      const updatedMessages = [...messages, userMessage]
+
+      // Create FormData for file upload
+      const formData = new FormData()
+
+      // Add files to FormData with type prefixes
+      let fileIndex = 0
+      if (diagnosisFiles.diagnosis) {
+        formData.append(`file_diagnosis_${fileIndex}`, diagnosisFiles.diagnosis)
+        fileIndex++
+      }
+      if (diagnosisFiles.measurements) {
+        formData.append(
+          `file_measurements_${fileIndex}`,
+          diagnosisFiles.measurements
+        )
+        fileIndex++
+      }
+      diagnosisFiles.images.forEach((image, index) => {
+        formData.append(`file_image_${fileIndex}`, image)
+        fileIndex++
+      })
+
+      // Add metadata as JSON
+      const metadata = {
+        messages: updatedMessages,
+        id,
+        model: selectedModel
+      }
+      formData.append('metadata', JSON.stringify(metadata))
+
+      // Clear input and files after handling response
+      setDiagnosisFiles({ images: [] })
+      handleInputChange({
+        target: { value: '' }
+      } as React.ChangeEvent<HTMLTextAreaElement>)
+
+      try {
+        // Send to API
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          body: formData
+        })
+
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`API error: ${response.status} ${errorText}`)
+        }
+
+        // Parse JSON response and append assistant message
+        // Important: read the body ONCE to avoid "body stream already read"
+        const responseText = await response.text()
+        let assistantContent = ''
+        try {
+          const json = JSON.parse(responseText)
+          assistantContent =
+            json?.response ?? json?.message ?? json?.content ?? ''
+        } catch {
+          // Not JSON; use raw text
+          assistantContent = responseText
+        }
+
+        const assistantMessage: Message = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: assistantContent
+        }
+
+        setMessages([...updatedMessages, assistantMessage])
+
+        // On finish, update URL if we're on the home page (new chat)
+        if (window.location.pathname === '/') {
+          window.history.replaceState({}, '', `/search/${id}`)
+        }
+        window.dispatchEvent(new CustomEvent('chat-history-updated'))
+      } catch (error) {
+        console.error('Error sending message:', error)
+        toast.error(`Error: ${(error as Error).message}`)
+      }
+      return
+    }
+
+    // For other models, use existing file upload logic
     // If no files, use regular handleSubmit
     if (!files || files.length === 0) {
       handleSubmit(e)
@@ -334,9 +460,12 @@ export function Chat({
         query={query}
         append={append}
         models={[]}
+        selectedModel={selectedModel}
         onModelChange={setSelectedModel}
         files={files}
         onFilesChange={setFiles}
+        diagnosisFiles={diagnosisFiles}
+        onDiagnosisFilesChange={setDiagnosisFiles}
         showScrollToBottomButton={!isAtBottom}
         scrollContainerRef={scrollContainerRef}
         user={user}
