@@ -5,6 +5,8 @@ import { useRef, useState } from 'react'
 import { FileSpreadsheet, Image as ImageIcon, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { validateDiagnosisFile } from '@/lib/utils/diagnosis-validation'
+import { validateMeasurementsFile } from '@/lib/utils/measurements-validation'
 
 import { Button } from './ui/button'
 
@@ -56,12 +58,20 @@ export function DiagnosisFileUpload({
   const [isDragging, setIsDragging] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const handleDiagnosisSelect = (selectedFiles: FileList | null) => {
+  const handleDiagnosisSelect = async (selectedFiles: FileList | null) => {
     if (!selectedFiles || selectedFiles.length === 0) return
 
     const file = selectedFiles[0]
     if (!isExcelFile(file)) {
       setErrorMessage(`Diagnosis file must be Excel (.xlsx) format`)
+      setTimeout(() => setErrorMessage(null), 5000)
+      return
+    }
+
+    // Validate file columns
+    const validation = await validateDiagnosisFile(file)
+    if (!validation.valid) {
+      setErrorMessage(validation.error || '파일 검증에 실패했습니다.')
       setTimeout(() => setErrorMessage(null), 5000)
       return
     }
@@ -72,12 +82,20 @@ export function DiagnosisFileUpload({
     })
   }
 
-  const handleMeasurementsSelect = (selectedFiles: FileList | null) => {
+  const handleMeasurementsSelect = async (selectedFiles: FileList | null) => {
     if (!selectedFiles || selectedFiles.length === 0) return
 
     const file = selectedFiles[0]
     if (!isExcelFile(file)) {
       setErrorMessage(`Measurements file must be Excel (.xlsx) format`)
+      setTimeout(() => setErrorMessage(null), 5000)
+      return
+    }
+
+    // Validate file columns and rows
+    const validation = await validateMeasurementsFile(file)
+    if (!validation.valid) {
+      setErrorMessage(validation.error || '파일 검증에 실패했습니다.')
       setTimeout(() => setErrorMessage(null), 5000)
       return
     }
@@ -135,7 +153,7 @@ export function DiagnosisFileUpload({
     setIsDragging(false)
   }
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault()
     setIsDragging(false)
     if (disabled) return
@@ -147,17 +165,32 @@ export function DiagnosisFileUpload({
     // Try to assign Excel files to diagnosis or measurements if empty
     if (excelFiles.length > 0) {
       if (!files.diagnosis && excelFiles.length > 0) {
-        onFilesChange({
-          ...files,
-          diagnosis: excelFiles[0]
-        })
-        excelFiles.shift()
+        const diagnosisFile = excelFiles[0]
+        const validation = await validateDiagnosisFile(diagnosisFile)
+        if (!validation.valid) {
+          setErrorMessage(validation.error || '파일 검증에 실패했습니다.')
+          setTimeout(() => setErrorMessage(null), 5000)
+          excelFiles.shift()
+        } else {
+          onFilesChange({
+            ...files,
+            diagnosis: diagnosisFile
+          })
+          excelFiles.shift()
+        }
       }
       if (!files.measurements && excelFiles.length > 0) {
-        onFilesChange({
-          ...files,
-          measurements: excelFiles[0]
-        })
+        const measurementsFile = excelFiles[0]
+        const validation = await validateMeasurementsFile(measurementsFile)
+        if (!validation.valid) {
+          setErrorMessage(validation.error || '파일 검증에 실패했습니다.')
+          setTimeout(() => setErrorMessage(null), 5000)
+        } else {
+          onFilesChange({
+            ...files,
+            measurements: measurementsFile
+          })
+        }
       }
     }
 
