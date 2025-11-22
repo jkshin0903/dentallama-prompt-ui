@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation'
 
 import { getSharedChat } from '@/lib/actions/chat'
+import { getCurrentUser } from '@/lib/auth/get-current-user'
 import { convertToUIMessages } from '@/lib/utils'
 
 import { Chat } from '@/components/chat'
@@ -30,7 +31,13 @@ export default async function SharePage(props: {
     return notFound()
   }
 
+  const user = await getCurrentUser()
+
   return (
-    <Chat id={chat.id} savedMessages={convertToUIMessages(chat.messages)} />
+    <Chat
+      id={chat.id}
+      savedMessages={convertToUIMessages(chat.messages)}
+      user={user}
+    />
   )
 }

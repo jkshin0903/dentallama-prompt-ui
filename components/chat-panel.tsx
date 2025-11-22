@@ -2,21 +2,27 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Textarea from 'react-textarea-autosize'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
-import { Message } from 'ai'
 import { User } from '@supabase/supabase-js'
-import { ArrowUp, ChevronDown, MessageCirclePlus, Square, LogIn } from 'lucide-react'
+import { Message } from 'ai'
+import {
+  ArrowUp,
+  ChevronDown,
+  LogIn,
+  MessageCirclePlus,
+  Square
+} from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
 import { useArtifact } from './artifact/artifact-context'
 import { Button } from './ui/button'
 import { IconLogo } from './ui/icons'
+import { DiagnosisFileUpload } from './diagnosis-file-upload'
 import { EmptyScreen } from './empty-screen'
 import { FileUpload } from './file-upload'
-import { DiagnosisFileUpload } from './diagnosis-file-upload'
 import { ModelSelector } from './model-selector'
 import { SearchModeToggle } from './search-mode-toggle'
 
@@ -173,24 +179,24 @@ export function ChatPanel({
 
         <div className="relative flex flex-col w-full gap-2 bg-muted rounded-3xl border border-input">
           {/* File upload section - only show for treatment-plan-gen model */}
-          {selectedModel === 'treatment-plan-gen' &&
-            onDiagnosisFilesChange && (
-              <div className="px-4 pt-4">
-                <DiagnosisFileUpload
-                  files={diagnosisFiles}
-                  onFilesChange={onDiagnosisFilesChange}
-                  disabled={isInputDisabled}
-                />
-              </div>
-            )}
+          {selectedModel === 'treatment-plan-gen' && onDiagnosisFilesChange && (
+            <div className="px-4 pt-4">
+              <DiagnosisFileUpload
+                files={diagnosisFiles}
+                onFilesChange={onDiagnosisFilesChange}
+                disabled={isInputDisabled}
+              />
+            </div>
+          )}
           {/* File upload section - for other models (hidden for now) */}
           {selectedModel !== 'treatment-plan-gen' &&
             onFilesChange &&
-            false && (
+            false &&
+            onFilesChange && (
               <div className="px-4 pt-4">
                 <FileUpload
                   files={files}
-                  onFilesChange={onFilesChange}
+                  onFilesChange={onFilesChange as (files: File[]) => void}
                   disabled={isInputDisabled}
                 />
               </div>
@@ -219,7 +225,9 @@ export function ChatPanel({
             tabIndex={0}
             onCompositionStart={handleCompositionStart}
             onCompositionEnd={handleCompositionEnd}
-            placeholder={user ? 'Ask a question...' : 'Sign in to ask a question...'}
+            placeholder={
+              user ? 'Ask a question...' : 'Sign in to ask a question...'
+            }
             spellCheck={false}
             value={input}
             disabled={isInputDisabled}
