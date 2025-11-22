@@ -40,7 +40,7 @@ export function Chat({
 }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
-  const [selectedModel, setSelectedModel] = useState('model-a')
+  const [selectedModel, setSelectedModel] = useState('treatment-plan-gen')
   const [files, setFiles] = useState<File[]>([])
 
   const {
