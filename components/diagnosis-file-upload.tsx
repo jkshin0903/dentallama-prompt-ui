@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react'
 
-import { FileIcon, X, FileSpreadsheet, Image as ImageIcon } from 'lucide-react'
+import { FileSpreadsheet, Image as ImageIcon, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
@@ -23,22 +23,18 @@ interface DiagnosisFileUploadProps {
 }
 
 // Allowed file extensions
-const EXCEL_CSV_EXTENSIONS = ['.xlsx', '.xls', '.csv']
-const EXCEL_CSV_MIME_TYPES = [
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/vnd.ms-excel',
-  'text/csv',
-  'application/csv'
+const EXCEL_EXTENSIONS = ['.xlsx']
+const EXCEL_MIME_TYPES = [
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 ]
 
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png']
 const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png']
 
-const isExcelCsvFile = (file: File): boolean => {
+const isExcelFile = (file: File): boolean => {
   const extension = '.' + file.name.split('.').pop()?.toLowerCase()
   return (
-    EXCEL_CSV_EXTENSIONS.includes(extension) ||
-    EXCEL_CSV_MIME_TYPES.includes(file.type)
+    EXCEL_EXTENSIONS.includes(extension) || EXCEL_MIME_TYPES.includes(file.type)
   )
 }
 
@@ -64,10 +60,8 @@ export function DiagnosisFileUpload({
     if (!selectedFiles || selectedFiles.length === 0) return
 
     const file = selectedFiles[0]
-    if (!isExcelCsvFile(file)) {
-      setErrorMessage(
-        `Diagnosis file must be Excel (.xlsx, .xls) or CSV (.csv) format`
-      )
+    if (!isExcelFile(file)) {
+      setErrorMessage(`Diagnosis file must be Excel (.xlsx) format`)
       setTimeout(() => setErrorMessage(null), 5000)
       return
     }
@@ -82,10 +76,8 @@ export function DiagnosisFileUpload({
     if (!selectedFiles || selectedFiles.length === 0) return
 
     const file = selectedFiles[0]
-    if (!isExcelCsvFile(file)) {
-      setErrorMessage(
-        `Measurements file must be Excel (.xlsx, .xls) or CSV (.csv) format`
-      )
+    if (!isExcelFile(file)) {
+      setErrorMessage(`Measurements file must be Excel (.xlsx) format`)
       setTimeout(() => setErrorMessage(null), 5000)
       return
     }
@@ -149,22 +141,22 @@ export function DiagnosisFileUpload({
     if (disabled) return
 
     const droppedFiles = Array.from(e.dataTransfer.files)
-    const excelCsvFiles = droppedFiles.filter(isExcelCsvFile)
+    const excelFiles = droppedFiles.filter(isExcelFile)
     const imageFiles = droppedFiles.filter(isImageFile)
 
-    // Try to assign Excel/CSV files to diagnosis or measurements if empty
-    if (excelCsvFiles.length > 0) {
-      if (!files.diagnosis && excelCsvFiles.length > 0) {
+    // Try to assign Excel files to diagnosis or measurements if empty
+    if (excelFiles.length > 0) {
+      if (!files.diagnosis && excelFiles.length > 0) {
         onFilesChange({
           ...files,
-          diagnosis: excelCsvFiles[0]
+          diagnosis: excelFiles[0]
         })
-        excelCsvFiles.shift()
+        excelFiles.shift()
       }
-      if (!files.measurements && excelCsvFiles.length > 0) {
+      if (!files.measurements && excelFiles.length > 0) {
         onFilesChange({
           ...files,
-          measurements: excelCsvFiles[0]
+          measurements: excelFiles[0]
         })
       }
     }
@@ -194,7 +186,7 @@ export function DiagnosisFileUpload({
       {/* Diagnosis file upload */}
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-foreground">
-          Diagnosis 파일 (Excel/CSV)
+          Diagnosis 파일 (Excel)
         </label>
         {files.diagnosis ? (
           <div className="flex items-center gap-2 px-3 py-2 bg-background border border-border rounded-md text-sm">
@@ -238,7 +230,7 @@ export function DiagnosisFileUpload({
               ref={diagnosisInputRef}
               type="file"
               className="hidden"
-              accept=".xlsx,.xls,.csv"
+              accept=".xlsx"
               onChange={e => handleDiagnosisSelect(e.target.files)}
               disabled={disabled}
             />
@@ -249,7 +241,7 @@ export function DiagnosisFileUpload({
       {/* Measurements file upload */}
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-foreground">
-          Measurements 파일 (Excel/CSV)
+          Measurements 파일 (Excel)
         </label>
         {files.measurements ? (
           <div className="flex items-center gap-2 px-3 py-2 bg-background border border-border rounded-md text-sm">
@@ -293,7 +285,7 @@ export function DiagnosisFileUpload({
               ref={measurementsInputRef}
               type="file"
               className="hidden"
-              accept=".xlsx,.xls,.csv"
+              accept=".xlsx"
               onChange={e => handleMeasurementsSelect(e.target.files)}
               disabled={disabled}
             />
@@ -331,9 +323,7 @@ export function DiagnosisFileUpload({
                 선택
               </button>
             </p>
-            <p className="text-xs text-muted-foreground">
-              JPG, PNG 형식 지원
-            </p>
+            <p className="text-xs text-muted-foreground">JPG, PNG 형식 지원</p>
             <input
               ref={imagesInputRef}
               type="file"
@@ -407,4 +397,3 @@ export function DiagnosisFileUpload({
     </div>
   )
 }
-
