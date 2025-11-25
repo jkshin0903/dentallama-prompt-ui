@@ -3,7 +3,6 @@ import { Inter as FontSans } from 'next/font/google'
 
 import { Analytics } from '@vercel/analytics/next'
 
-import { createClient } from '@/lib/supabase/server'
 import { cn } from '@/lib/utils'
 
 import { SidebarProvider } from '@/components/ui/sidebar'
@@ -53,17 +52,9 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  let user = null
-  const supabaseUrl = process.env.SUPABASE_URL
-  const supabaseAnonKey = process.env.SUPABASE_ANON_KEY
-
-  if (supabaseUrl && supabaseAnonKey) {
-    const supabase = await createClient()
-    const {
-      data: { user: supabaseUser }
-    } = await supabase.auth.getUser()
-    user = supabaseUser
-  }
+  // Remove user fetching from layout to avoid blocking and duplicate calls
+  // User will be fetched in page components or client-side as needed
+  // This eliminates one getUser() call and one cookies() call during initial render
 
   return (
     <html lang="en" suppressHydrationWarning>
@@ -82,7 +73,7 @@ export default async function RootLayout({
           <SidebarProvider defaultOpen>
             <AppSidebar />
             <div className="flex flex-col flex-1">
-              <Header user={user} />
+              <Header user={null} />
               <main className="flex flex-1 min-h-0">
                 <ArtifactRoot>{children}</ArtifactRoot>
               </main>

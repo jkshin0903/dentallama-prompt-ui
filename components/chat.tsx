@@ -8,6 +8,7 @@ import { ChatRequestOptions } from 'ai'
 import { Message } from 'ai/react'
 import { toast } from 'sonner'
 
+import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { parseDiagnosisFile } from '@/lib/utils/parse-diagnosis-file'
 import { parseMeasurementsFile } from '@/lib/utils/parse-measurements-file'
@@ -33,12 +34,12 @@ export function Chat({
   id,
   savedMessages = [],
   query,
-  user
+  user: initialUser
 }: {
   id: string
   savedMessages?: Message[]
   query?: string
-  user: User | null
+  user?: User | null // Make optional since we'll fetch client-side
 }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
@@ -49,6 +50,48 @@ export function Chat({
     measurements?: File
     images: File[]
   }>({ images: [] })
+  const [user, setUser] = useState<User | null>(initialUser ?? null)
+
+  // Fetch user on client side and listen for auth state changes
+  useEffect(() => {
+    const supabase = createClient()
+
+    // Initial fetch
+    const fetchUser = async () => {
+      try {
+        const {
+          data: { user: currentUser }
+        } = await supabase.auth.getUser()
+        setUser(currentUser)
+      } catch (error) {
+        console.warn('Failed to fetch user in chat:', error)
+        setUser(null)
+      }
+    }
+
+    // Only fetch if not provided as prop
+    if (!initialUser) {
+      fetchUser()
+    } else {
+      setUser(initialUser)
+    }
+
+    // Listen for auth state changes (login, logout, etc.)
+    const {
+      data: { subscription }
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        setUser(null)
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        setUser(session.user)
+      }
+    })
+
+    // Cleanup subscription on unmount
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [initialUser])
 
   const {
     messages,
