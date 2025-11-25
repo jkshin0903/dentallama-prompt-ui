@@ -2,6 +2,18 @@ import { updateSession } from '@/lib/supabase/middleware'
 import { type NextRequest, NextResponse } from 'next/server'
 
 export async function middleware(request: NextRequest) {
+  // Log request information
+  const startTime = Date.now()
+  const method = request.method
+  const url = request.nextUrl.pathname
+  const searchParams = request.nextUrl.searchParams.toString()
+  const fullUrl = searchParams ? `${url}?${searchParams}` : url
+  const userAgent = request.headers.get('user-agent') || 'unknown'
+  const ip =
+    request.headers.get('x-forwarded-for') ||
+    request.headers.get('x-real-ip') ||
+    'unknown'
+
   // Get the protocol from X-Forwarded-Proto header or request protocol
   const protocol =
     request.headers.get('x-forwarded-proto') || request.nextUrl.protocol
@@ -12,6 +24,12 @@ export async function middleware(request: NextRequest) {
 
   // Construct the base URL - ensure protocol has :// format
   const baseUrl = `${protocol}${protocol.endsWith(':') ? '//' : '://'}${host}`
+
+  // Log incoming request (skip static assets for cleaner logs)
+  if (!url.startsWith('/_next/') && !url.startsWith('/favicon.ico')) {
+    const timestamp = new Date().toISOString()
+    console.log(`[${timestamp}] ${method} ${fullUrl} - IP: ${ip}`)
+  }
 
   // Create a response
   let response: NextResponse
@@ -34,6 +52,16 @@ export async function middleware(request: NextRequest) {
   response.headers.set('x-host', host)
   response.headers.set('x-protocol', protocol)
   response.headers.set('x-base-url', baseUrl)
+
+  // Log response time for non-static assets
+  if (!url.startsWith('/_next/') && !url.startsWith('/favicon.ico')) {
+    const duration = Date.now() - startTime
+    const status = response.status
+    const timestamp = new Date().toISOString()
+    console.log(
+      `[${timestamp}] ${method} ${fullUrl} - ${status} - ${duration}ms`
+    )
+  }
 
   return response
 }
