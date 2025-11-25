@@ -71,14 +71,17 @@ export async function getModels(): Promise<Model[]> {
       }
     }
 
+    // 외부 gateway를 사용하므로 Ollama 모델 로드 불필요
     // Fetch Ollama models
-    const ollamaModels = await fetchOllamaModels(baseUrlObj)
+    // const ollamaModels = await fetchOllamaModels(baseUrlObj)
 
     // Combine static and Ollama models
-    const allModels = [...staticModels, ...ollamaModels]
+    // const allModels = [...staticModels, ...ollamaModels]
+    const allModels = [...staticModels]
 
     console.log(
-      `Loaded ${staticModels.length} static models and ${ollamaModels.length} Ollama models`
+      `Loaded ${staticModels.length} static models`
+      // `Loaded ${staticModels.length} static models and ${ollamaModels.length} Ollama models`
     )
     return allModels
   } catch (error) {
