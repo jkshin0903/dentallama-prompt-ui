@@ -317,6 +317,7 @@ export function Chat({
       const userMessageContent = JSON.stringify(contentData)
 
       // Convert image files to base64
+      // Use FileReader to avoid call stack overflow with large images
       const imageFiles: Array<{
         name: string
         type: string
@@ -324,10 +325,18 @@ export function Chat({
       }> = []
 
       for (const image of diagnosisFiles.images) {
-        const arrayBuffer = await image.arrayBuffer()
-        const base64 = btoa(
-          String.fromCharCode(...new Uint8Array(arrayBuffer))
-        )
+        const base64 = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => {
+            // Remove data URL prefix (e.g., "data:image/jpeg;base64,")
+            const result = reader.result as string
+            const base64String = result.split(',')[1] || result
+            resolve(base64String)
+          }
+          reader.onerror = reject
+          reader.readAsDataURL(image)
+        })
+
         imageFiles.push({
           name: image.name,
           type: image.type,
