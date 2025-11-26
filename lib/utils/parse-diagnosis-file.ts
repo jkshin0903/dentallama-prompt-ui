@@ -12,14 +12,22 @@ export async function parseDiagnosisFile(file: File): Promise<string | null> {
     const firstSheetName = workbook.SheetNames[0]
     const worksheet = workbook.Sheets[firstSheetName]
 
-    // Parse as JSON with header row
+    // Parse as JSON with header row (new template structure)
     const data = XLSX.utils.sheet_to_json(worksheet, {
-      header: ['Patient ID', 'Diagnosis', 'ETC'],
+      header: [
+        '라벨번호',
+        'ChiefComplain',
+        'Diagnosis',
+        'TreatmentPlan',
+        'etc'
+      ],
       defval: ''
     }) as Array<{
-      'Patient ID': string
+      라벨번호: string
+      ChiefComplain: string
       Diagnosis: string
-      ETC: string
+      TreatmentPlan: string
+      etc: string
     }>
 
     // Get first data row's diagnosis value (skip header row)

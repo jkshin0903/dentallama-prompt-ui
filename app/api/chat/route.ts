@@ -128,11 +128,60 @@ export async function POST(req: Request) {
         const jsonResponse = JSON.parse(responseText)
         const stream = new ReadableStream({
           start(controller) {
-            const response =
+            let response =
               jsonResponse.response ||
               jsonResponse.message ||
               jsonResponse.content ||
               responseText
+
+            // Clean up response: remove JSON data and extract only text content
+            if (typeof response === 'string') {
+              // Remove "0:" prefix if present (SSE format artifact)
+              response = response.replace(/^0:\s*"?/, '').replace(/"$/, '')
+              
+              // Try to parse as JSON if it looks like JSON
+              try {
+                const parsed = JSON.parse(response)
+                // If it's a JSON object, extract only the text content
+                if (typeof parsed === 'object' && parsed !== null) {
+                  // If response field exists and is a string, use it
+                  if (typeof parsed.response === 'string') {
+                    response = parsed.response
+                  } else {
+                    // Remove diagnosis and measurements fields, keep the rest
+                    const { diagnosis, measurements, ...rest } = parsed
+                    // If there's a text or content field, use it
+                    if (rest.text || rest.content || rest.message) {
+                      response = rest.text || rest.content || rest.message || ''
+                    } else {
+                      // Otherwise, stringify the rest (excluding diagnosis/measurements)
+                      response = JSON.stringify(rest, null, 2)
+                    }
+                  }
+                }
+              } catch {
+                // Not valid JSON, continue with string cleaning
+                // Remove embedded JSON objects using more robust regex
+                // Match "diagnosis": {...} including nested objects
+                response = response.replace(
+                  /"diagnosis"\s*:\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g,
+                  ''
+                )
+                // Match "measurements": {...} including nested objects
+                response = response.replace(
+                  /"measurements"\s*:\s*\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g,
+                  ''
+                )
+              }
+              
+              // Remove any remaining JSON-like structures (large objects)
+              response = response.replace(/\{[^{}]{50,}\}/g, '')
+              
+              // Clean up extra whitespace and newlines
+              response = response
+                .replace(/\n\s*\n\s*\n/g, '\n\n') // Multiple newlines to double
+                .trim()
+            }
 
             const chunk = `0:"${response.replace(/\"/g, '\\\"').replace(/\n/g, '\\n')}"\n`
             controller.enqueue(new TextEncoder().encode(chunk))

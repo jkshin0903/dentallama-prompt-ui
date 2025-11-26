@@ -298,12 +298,19 @@ export function Chat({
       }
 
       // Build content as JSON string
+      // Include user's prompt text along with parsed file data
       const contentData: {
+        prompt?: string
         diagnosis?: string
         measurements?: Record<string, number | null>
         use_rag: boolean
       } = {
         use_rag: true
+      }
+
+      // Include user's input text if provided
+      if (input && input.trim()) {
+        contentData.prompt = input.trim()
       }
 
       if (diagnosis) {

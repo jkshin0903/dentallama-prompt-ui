@@ -56,30 +56,43 @@ export function DiagnosisFileUpload({
   const measurementsInputRef = useRef<HTMLInputElement>(null)
   const imagesInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const [errorMessage, setErrorMessage] = useState<string | null>(null)
+  const [diagnosisError, setDiagnosisError] = useState<string | null>(null)
+  const [measurementsError, setMeasurementsError] = useState<string | null>(
+    null
+  )
+  const [errorMessage, setErrorMessage] = useState<string | null>(null) // For image errors
 
   const handleDiagnosisSelect = async (selectedFiles: FileList | null) => {
     if (!selectedFiles || selectedFiles.length === 0) return
 
     const file = selectedFiles[0]
     if (!isExcelFile(file)) {
-      setErrorMessage(`Diagnosis file must be Excel (.xlsx) format`)
-      setTimeout(() => setErrorMessage(null), 5000)
+      setDiagnosisError(`Diagnosis file must be Excel (.xlsx) format`)
       return
     }
 
-    // Validate file columns
-    const validation = await validateDiagnosisFile(file)
-    if (!validation.valid) {
-      setErrorMessage(validation.error || '파일 검증에 실패했습니다.')
-      setTimeout(() => setErrorMessage(null), 5000)
-      return
-    }
+    try {
+      // Validate file columns
+      const validation = await validateDiagnosisFile(file)
+      if (!validation.valid) {
+        setDiagnosisError(validation.error || '파일 검증에 실패했습니다.')
+        return
+      }
 
-    onFilesChange({
-      ...files,
-      diagnosis: file
-    })
+      // Clear error message on successful upload
+      setDiagnosisError(null)
+      onFilesChange({
+        ...files,
+        diagnosis: file
+      })
+    } catch (error) {
+      console.error('Error in handleDiagnosisSelect:', error)
+      setDiagnosisError(
+        error instanceof Error
+          ? `파일 업로드 중 오류: ${error.message}`
+          : '파일 업로드 중 알 수 없는 오류가 발생했습니다.'
+      )
+    }
   }
 
   const handleMeasurementsSelect = async (selectedFiles: FileList | null) => {
@@ -87,23 +100,32 @@ export function DiagnosisFileUpload({
 
     const file = selectedFiles[0]
     if (!isExcelFile(file)) {
-      setErrorMessage(`Measurements file must be Excel (.xlsx) format`)
-      setTimeout(() => setErrorMessage(null), 5000)
+      setMeasurementsError(`Measurements file must be Excel (.xlsx) format`)
       return
     }
 
-    // Validate file columns and rows
-    const validation = await validateMeasurementsFile(file)
-    if (!validation.valid) {
-      setErrorMessage(validation.error || '파일 검증에 실패했습니다.')
-      setTimeout(() => setErrorMessage(null), 5000)
-      return
-    }
+    try {
+      // Validate file columns and rows
+      const validation = await validateMeasurementsFile(file)
+      if (!validation.valid) {
+        setMeasurementsError(validation.error || '파일 검증에 실패했습니다.')
+        return
+      }
 
-    onFilesChange({
-      ...files,
-      measurements: file
-    })
+      // Clear error message on successful upload
+      setMeasurementsError(null)
+      onFilesChange({
+        ...files,
+        measurements: file
+      })
+    } catch (error) {
+      console.error('Error in handleMeasurementsSelect:', error)
+      setMeasurementsError(
+        error instanceof Error
+          ? `파일 업로드 중 오류: ${error.message}`
+          : '파일 업로드 중 알 수 없는 오류가 발생했습니다.'
+      )
+    }
   }
 
   const handleImagesSelect = (selectedFiles: FileList | null) => {
@@ -168,10 +190,11 @@ export function DiagnosisFileUpload({
         const diagnosisFile = excelFiles[0]
         const validation = await validateDiagnosisFile(diagnosisFile)
         if (!validation.valid) {
-          setErrorMessage(validation.error || '파일 검증에 실패했습니다.')
-          setTimeout(() => setErrorMessage(null), 5000)
+          setDiagnosisError(validation.error || '파일 검증에 실패했습니다.')
           excelFiles.shift()
         } else {
+          // Clear error message on successful upload
+          setDiagnosisError(null)
           onFilesChange({
             ...files,
             diagnosis: diagnosisFile
@@ -183,9 +206,10 @@ export function DiagnosisFileUpload({
         const measurementsFile = excelFiles[0]
         const validation = await validateMeasurementsFile(measurementsFile)
         if (!validation.valid) {
-          setErrorMessage(validation.error || '파일 검증에 실패했습니다.')
-          setTimeout(() => setErrorMessage(null), 5000)
+          setMeasurementsError(validation.error || '파일 검증에 실패했습니다.')
         } else {
+          // Clear error message on successful upload
+          setMeasurementsError(null)
           onFilesChange({
             ...files,
             measurements: measurementsFile
@@ -234,12 +258,13 @@ export function DiagnosisFileUpload({
             </div>
             <button
               type="button"
-              onClick={() =>
+              onClick={() => {
+                setDiagnosisError(null)
                 onFilesChange({
                   ...files,
                   diagnosis: undefined
                 })
-              }
+              }}
               className="ml-2 p-1 hover:bg-destructive/10 rounded transition-colors"
               disabled={disabled}
             >
@@ -269,6 +294,12 @@ export function DiagnosisFileUpload({
             />
           </div>
         )}
+        {/* Diagnosis error message */}
+        {diagnosisError && (
+          <div className="text-sm text-destructive bg-destructive/10 p-2 rounded-md">
+            {diagnosisError}
+          </div>
+        )}
       </div>
 
       {/* Measurements file upload */}
@@ -289,12 +320,13 @@ export function DiagnosisFileUpload({
             </div>
             <button
               type="button"
-              onClick={() =>
+              onClick={() => {
+                setMeasurementsError(null)
                 onFilesChange({
                   ...files,
                   measurements: undefined
                 })
-              }
+              }}
               className="ml-2 p-1 hover:bg-destructive/10 rounded transition-colors"
               disabled={disabled}
             >
@@ -322,6 +354,12 @@ export function DiagnosisFileUpload({
               onChange={e => handleMeasurementsSelect(e.target.files)}
               disabled={disabled}
             />
+          </div>
+        )}
+        {/* Measurements error message */}
+        {measurementsError && (
+          <div className="text-sm text-destructive bg-destructive/10 p-2 rounded-md">
+            {measurementsError}
           </div>
         )}
       </div>

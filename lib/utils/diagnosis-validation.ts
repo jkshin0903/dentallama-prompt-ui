@@ -1,23 +1,12 @@
 import * as XLSX from 'xlsx'
-import { z } from 'zod'
+import { loadDiagnosisTemplate } from './template-loader'
 
-// Required columns for diagnosis files
-const REQUIRED_COLUMNS = ['Patient ID', 'Diagnosis', 'ETC']
+// Normalize string (trim and remove \r)
+const normalizeString = (str: string): string => {
+  return str.replace(/\r/g, '').trim()
+}
 
-// Zod schema for diagnosis file columns
-const diagnosisColumnsSchema = z.object({
-  columns: z.array(z.string()).refine(
-    cols => {
-      const normalizedCols = cols.map(col => col.trim())
-      return REQUIRED_COLUMNS.every(col => normalizedCols.includes(col))
-    },
-    {
-      message: `Excel 파일의 첫 번째 행에 "${REQUIRED_COLUMNS.join('", "')}" 컬럼이 필요합니다.`
-    }
-  )
-})
-
-// Validate diagnosis file columns
+// Validate diagnosis file against template
 export const validateDiagnosisFile = async (
   file: File
 ): Promise<{
@@ -25,17 +14,36 @@ export const validateDiagnosisFile = async (
   error?: string
 }> => {
   try {
+    // Load template structure
+    const template = await loadDiagnosisTemplate()
+
+    if (!template || !template.columns || template.columns.length === 0) {
+      return {
+        valid: false,
+        error: '템플릿 파일을 로드할 수 없습니다.'
+      }
+    }
+
+    // Parse uploaded file
     const arrayBuffer = await file.arrayBuffer()
     const workbook = XLSX.read(arrayBuffer, { type: 'array' })
     const firstSheetName = workbook.SheetNames[0]
     const worksheet = workbook.Sheets[firstSheetName]
 
     // Get first row as headers
-    const firstRow = XLSX.utils.sheet_to_json(worksheet, {
+    const rows = XLSX.utils.sheet_to_json(worksheet, {
       header: 1,
       defval: ''
-    })[0] as string[]
+    }) as string[][]
 
+    if (!rows || rows.length === 0) {
+      return {
+        valid: false,
+        error: 'Excel 파일이 비어있습니다.'
+      }
+    }
+
+    const firstRow = rows[0]
     if (!firstRow || firstRow.length === 0) {
       return {
         valid: false,
@@ -43,19 +51,36 @@ export const validateDiagnosisFile = async (
       }
     }
 
-    const result = diagnosisColumnsSchema.safeParse({ columns: firstRow })
-    if (!result.success) {
+    // Normalize columns (template.columns is already normalized, but normalize again for safety)
+    const normalizedFirstRow = firstRow.map(normalizeString)
+    const normalizedTemplateColumns = template.columns.map(normalizeString)
+
+    // Check if column count matches
+    if (normalizedFirstRow.length !== normalizedTemplateColumns.length) {
       return {
         valid: false,
-        error: result.error.errors[0]?.message || '컬럼 검증에 실패했습니다.'
+        error: `첫 번째 행의 컬럼 개수가 템플릿과 일치하지 않습니다. (템플릿: ${normalizedTemplateColumns.length}개, 현재: ${normalizedFirstRow.length}개)`
+      }
+    }
+
+    // Check if each column matches exactly in order
+    for (let i = 0; i < normalizedTemplateColumns.length; i++) {
+      if (normalizedFirstRow[i] !== normalizedTemplateColumns[i]) {
+        return {
+          valid: false,
+          error: `첫 번째 행의 ${i + 1}번째 컬럼이 템플릿과 일치하지 않습니다. (템플릿: "${normalizedTemplateColumns[i]}", 현재: "${normalizedFirstRow[i]}")`
+        }
       }
     }
 
     return { valid: true }
   } catch (error) {
+    console.error('Error validating diagnosis file:', error)
+    const errorMessage =
+      error instanceof Error ? error.message : '알 수 없는 오류'
     return {
       valid: false,
-      error: 'Excel 파일을 읽는 중 오류가 발생했습니다.'
+      error: `파일 검증 중 오류가 발생했습니다: ${errorMessage}`
     }
   }
 }
