@@ -16,7 +16,7 @@ interface ModelSelectorProps {
 }
 
 export function ModelSelector({ models, onModelChange }: ModelSelectorProps) {
-  const [selectedModel, setSelectedModel] = useState('model-a')
+  const [selectedModel, setSelectedModel] = useState('treatment-plan-gen')
 
   const handleChange = (value: string) => {
     setSelectedModel(value)
@@ -29,7 +29,7 @@ export function ModelSelector({ models, onModelChange }: ModelSelectorProps) {
         <SelectValue placeholder="Custom Model" />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="model-a">Model A</SelectItem>
+        <SelectItem value="treatment-plan-gen">진단 생성</SelectItem>
         <SelectItem value="model-b">Model B</SelectItem>
         <SelectItem value="model-c">Model C</SelectItem>
       </SelectContent>

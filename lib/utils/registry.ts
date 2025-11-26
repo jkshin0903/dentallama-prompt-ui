@@ -11,16 +11,17 @@ import {
   extractReasoningMiddleware,
   wrapLanguageModel
 } from 'ai'
-import { createOllama } from 'ollama-ai-provider'
+// import { createOllama } from 'ollama-ai-provider'
+// 외부 gateway를 사용하므로 Ollama provider 로드 불필요
 
 export const registry = createProviderRegistry({
   openai,
   anthropic,
   google,
   groq,
-  ollama: createOllama({
-    baseURL: `${process.env.OLLAMA_BASE_URL}/api`
-  }),
+  // ollama: createOllama({
+  //   baseURL: `${process.env.OLLAMA_BASE_URL}/api`
+  // }),
   azure: createAzure({
     apiKey: process.env.AZURE_API_KEY,
     resourceName: process.env.AZURE_RESOURCE_NAME,
@@ -43,26 +44,27 @@ export const registry = createProviderRegistry({
 export function getModel(model: string) {
   const [provider, ...modelNameParts] = model.split(':') ?? []
   const modelName = modelNameParts.join(':')
-  if (model.includes('ollama')) {
-    const ollama = createOllama({
-      baseURL: `${process.env.OLLAMA_BASE_URL}/api`
-    })
+  // 외부 gateway를 사용하므로 Ollama 모델 로드 불필요
+  // if (model.includes('ollama')) {
+  //   const ollama = createOllama({
+  //     baseURL: `${process.env.OLLAMA_BASE_URL}/api`
+  //   })
 
-    // if model is deepseek-r1, add reasoning middleware
-    if (model.includes('deepseek-r1')) {
-      return wrapLanguageModel({
-        model: ollama(modelName),
-        middleware: extractReasoningMiddleware({
-          tagName: 'think'
-        })
-      })
-    }
+  //   // if model is deepseek-r1, add reasoning middleware
+  //   if (model.includes('deepseek-r1')) {
+  //     return wrapLanguageModel({
+  //       model: ollama(modelName),
+  //       middleware: extractReasoningMiddleware({
+  //         tagName: 'think'
+  //       })
+  //     })
+  //   }
 
-    // if ollama provider, set simulateStreaming to true
-    return ollama(modelName, {
-      simulateStreaming: true
-    })
-  }
+  //   // if ollama provider, set simulateStreaming to true
+  //   return ollama(modelName, {
+  //     simulateStreaming: true
+  //   })
+  // }
 
   // if model is groq and includes deepseek-r1, add reasoning middleware
   if (model.includes('groq') && model.includes('deepseek-r1')) {
@@ -131,9 +133,10 @@ export function getToolCallModel(model?: string) {
       )
     case 'groq':
       return getModel('groq:llama-3.1-8b-instant')
-    case 'ollama':
-      const ollamaModel = process.env.OLLAMA_TOOL_CALL_MODEL || modelName
-      return getModel(`ollama:${ollamaModel}`)
+    // 외부 gateway를 사용하므로 Ollama tool call 모델 로드 불필요
+    // case 'ollama':
+    //   const ollamaModel = process.env.OLLAMA_TOOL_CALL_MODEL || modelName
+    //   return getModel(`ollama:${ollamaModel}`)
     case 'google':
       return getModel('google:gemini-2.0-flash')
     default:
@@ -145,10 +148,11 @@ export function isToolCallSupported(model?: string) {
   const [provider, ...modelNameParts] = model?.split(':') ?? []
   const modelName = modelNameParts.join(':')
 
-  if (provider === 'ollama') {
-    // Ollama models are dynamically checked for tools capability
-    return true
-  }
+  // 외부 gateway를 사용하므로 Ollama tool call 체크 불필요
+  // if (provider === 'ollama') {
+  //   // Ollama models are dynamically checked for tools capability
+  //   return true
+  // }
 
   if (provider === 'google') {
     return false
