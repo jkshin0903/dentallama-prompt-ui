@@ -5,22 +5,18 @@ import { useRef, useState } from 'react'
 import { FileSpreadsheet, Image as ImageIcon, X } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
-import { validateDiagnosisFile } from '@/lib/utils/diagnosis-validation'
-import { validateMeasurementsFile } from '@/lib/utils/measurements-validation'
+import {
+  DiagnosisFiles,
+  validateMeasurementsFile
+} from '@/lib/utils/diagnosis-validation'
 
 import { Button } from './ui/button'
+import { Label } from './ui/label'
+import { Textarea } from './ui/textarea'
 
 interface DiagnosisFileUploadProps {
-  files: {
-    diagnosis?: File
-    measurements?: File
-    images: File[]
-  }
-  onFilesChange: (files: {
-    diagnosis?: File
-    measurements?: File
-    images: File[]
-  }) => void
+  files: DiagnosisFiles
+  onFilesChange: (files: DiagnosisFiles) => void
   disabled?: boolean
 }
 
@@ -52,46 +48,70 @@ export function DiagnosisFileUpload({
   onFilesChange,
   disabled
 }: DiagnosisFileUploadProps) {
-  const diagnosisInputRef = useRef<HTMLInputElement>(null)
   const measurementsInputRef = useRef<HTMLInputElement>(null)
   const imagesInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
-  const [diagnosisError, setDiagnosisError] = useState<string | null>(null)
+  const [diagnosisErrors, setDiagnosisErrors] = useState<{
+    chiefComplain?: string
+    diagnosis?: string
+    treatmentPlan?: string
+    etc?: string
+  }>({})
   const [measurementsError, setMeasurementsError] = useState<string | null>(
     null
   )
   const [errorMessage, setErrorMessage] = useState<string | null>(null) // For image errors
 
-  const handleDiagnosisSelect = async (selectedFiles: FileList | null) => {
-    if (!selectedFiles || selectedFiles.length === 0) return
-
-    const file = selectedFiles[0]
-    if (!isExcelFile(file)) {
-      setDiagnosisError(`Diagnosis file must be Excel (.xlsx) format`)
-      return
+  const handleDiagnosisChange = (
+    field: 'chiefComplain' | 'diagnosis' | 'treatmentPlan' | 'etc',
+    value: string
+  ) => {
+    const currentDiagnosis = files.diagnosis || {
+      chiefComplain: '',
+      diagnosis: '',
+      treatmentPlan: '',
+      etc: ''
     }
 
-    try {
-      // Validate file columns
-      const validation = await validateDiagnosisFile(file)
-      if (!validation.valid) {
-        setDiagnosisError(validation.error || '파일 검증에 실패했습니다.')
-        return
-      }
+    const updatedDiagnosis = {
+      ...currentDiagnosis,
+      [field]: value
+    }
 
-      // Clear error message on successful upload
-      setDiagnosisError(null)
-      onFilesChange({
-        ...files,
-        diagnosis: file
+    // Clear error for this specific field when user starts typing
+    if (diagnosisErrors[field]) {
+      setDiagnosisErrors(prev => {
+        const newErrors = { ...prev }
+        delete newErrors[field]
+        return newErrors
       })
-    } catch (error) {
-      console.error('Error in handleDiagnosisSelect:', error)
-      setDiagnosisError(
-        error instanceof Error
-          ? `파일 업로드 중 오류: ${error.message}`
-          : '파일 업로드 중 알 수 없는 오류가 발생했습니다.'
-      )
+    }
+
+    onFilesChange({
+      ...files,
+      diagnosis: updatedDiagnosis
+    })
+  }
+
+  const handleDiagnosisClear = () => {
+    setDiagnosisErrors({})
+    onFilesChange({
+      ...files,
+      diagnosis: undefined
+    })
+  }
+
+  const validateDiagnosisField = (
+    field: 'chiefComplain' | 'diagnosis' | 'treatmentPlan' | 'etc',
+    value: string
+  ) => {
+    // Clear error for this field when user starts typing
+    if (diagnosisErrors[field]) {
+      setDiagnosisErrors(prev => {
+        const newErrors = { ...prev }
+        delete newErrors[field]
+        return newErrors
+      })
     }
   }
 
@@ -131,31 +151,24 @@ export function DiagnosisFileUpload({
   const handleImagesSelect = (selectedFiles: FileList | null) => {
     if (!selectedFiles) return
 
-    const [allowedFiles, rejectedFiles] = Array.from(selectedFiles).reduce(
-      ([allowed, rejected], file) => {
-        if (isImageFile(file)) {
-          allowed.push(file)
-        } else {
-          rejected.push(file.name)
-        }
-        return [allowed, rejected]
-      },
-      [[], []] as [File[], string[]]
-    )
+    // Only allow single image upload
+    const file = selectedFiles[0]
+    if (!file) return
 
-    if (rejectedFiles.length > 0) {
+    if (!isImageFile(file)) {
       setErrorMessage(
-        `These files are not supported: ${rejectedFiles.join(', ')}. Only images (JPG, PNG) are allowed.`
+        `This file is not supported: ${file.name}. Only images (JPG, PNG) are allowed.`
       )
       setTimeout(() => setErrorMessage(null), 5000)
+      return
     }
 
-    if (allowedFiles.length > 0) {
-      onFilesChange({
-        ...files,
-        images: [...files.images, ...allowedFiles]
-      })
-    }
+    // Replace existing image with new one
+    onFilesChange({
+      ...files,
+      images: [file]
+    })
+    setErrorMessage(null)
   }
 
   const handleImageRemove = (index: number) => {
@@ -184,24 +197,8 @@ export function DiagnosisFileUpload({
     const excelFiles = droppedFiles.filter(isExcelFile)
     const imageFiles = droppedFiles.filter(isImageFile)
 
-    // Try to assign Excel files to diagnosis or measurements if empty
+    // Try to assign Excel files to measurements if empty
     if (excelFiles.length > 0) {
-      if (!files.diagnosis && excelFiles.length > 0) {
-        const diagnosisFile = excelFiles[0]
-        const validation = await validateDiagnosisFile(diagnosisFile)
-        if (!validation.valid) {
-          setDiagnosisError(validation.error || '파일 검증에 실패했습니다.')
-          excelFiles.shift()
-        } else {
-          // Clear error message on successful upload
-          setDiagnosisError(null)
-          onFilesChange({
-            ...files,
-            diagnosis: diagnosisFile
-          })
-          excelFiles.shift()
-        }
-      }
       if (!files.measurements && excelFiles.length > 0) {
         const measurementsFile = excelFiles[0]
         const validation = await validateMeasurementsFile(measurementsFile)
@@ -218,12 +215,13 @@ export function DiagnosisFileUpload({
       }
     }
 
-    // Add image files
+    // Replace existing image with new one (single image only)
     if (imageFiles.length > 0) {
       onFilesChange({
         ...files,
-        images: [...files.images, ...imageFiles]
+        images: [imageFiles[0]]
       })
+      setErrorMessage(null)
     }
   }
 
@@ -235,77 +233,135 @@ export function DiagnosisFileUpload({
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i]
   }
 
-  const hasAnyFiles =
-    files.diagnosis || files.measurements || files.images.length > 0
-
   return (
     <div className="flex flex-col gap-4">
-      {/* Diagnosis file upload */}
-      <div className="flex flex-col gap-2">
-        <label className="text-sm font-medium text-foreground">
-          Diagnosis 파일 (Excel)
-        </label>
-        {files.diagnosis ? (
-          <div className="flex items-center gap-2 px-3 py-2 bg-background border border-border rounded-md text-sm">
-            <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className="truncate max-w-[200px] font-medium">
-                {files.diagnosis.name}
-              </span>
-              <span className="text-xs text-muted-foreground">
-                {formatFileSize(files.diagnosis.size)}
-              </span>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setDiagnosisError(null)
-                onFilesChange({
-                  ...files,
-                  diagnosis: undefined
-                })
-              }}
-              className="ml-2 p-1 hover:bg-destructive/10 rounded transition-colors"
-              disabled={disabled}
-            >
-              <X className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-            </button>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
+      {/* Diagnosis input fields */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-foreground">
+            1. Diagnosis 정보 <span className="text-destructive">*</span>
+          </label>
+          {files.diagnosis && (
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
-              onClick={() => diagnosisInputRef.current?.click()}
+              onClick={handleDiagnosisClear}
               disabled={disabled}
-              className="text-xs"
+              className="h-7 text-xs"
             >
-              <FileSpreadsheet className="h-4 w-4 mr-2" />
-              Diagnosis 파일 선택
+              <X className="h-3 w-3 mr-1" />
+              초기화
             </Button>
-            <input
-              ref={diagnosisInputRef}
-              type="file"
-              className="hidden"
-              accept=".xlsx"
-              onChange={e => handleDiagnosisSelect(e.target.files)}
+          )}
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="chief-complain" className="text-xs">
+              Chief Complain
+            </Label>
+            <Textarea
+              id="chief-complain"
+              value={files.diagnosis?.chiefComplain || ''}
+              onChange={e =>
+                handleDiagnosisChange('chiefComplain', e.target.value)
+              }
+              onBlur={e =>
+                validateDiagnosisField('chiefComplain', e.target.value)
+              }
               disabled={disabled}
+              placeholder="Chief Complain을 입력하세요"
+              className={cn(
+                'min-h-[80px] resize-none',
+                diagnosisErrors.chiefComplain && 'border-destructive'
+              )}
             />
+            {diagnosisErrors.chiefComplain && (
+              <p className="text-xs text-destructive">
+                {diagnosisErrors.chiefComplain}
+              </p>
+            )}
           </div>
-        )}
-        {/* Diagnosis error message */}
-        {diagnosisError && (
-          <div className="text-sm text-destructive bg-destructive/10 p-2 rounded-md">
-            {diagnosisError}
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="diagnosis" className="text-xs">
+              Diagnosis
+            </Label>
+            <Textarea
+              id="diagnosis"
+              value={files.diagnosis?.diagnosis || ''}
+              onChange={e => handleDiagnosisChange('diagnosis', e.target.value)}
+              onBlur={e => validateDiagnosisField('diagnosis', e.target.value)}
+              disabled={disabled}
+              placeholder="Diagnosis를 입력하세요"
+              className={cn(
+                'min-h-[80px] resize-none',
+                diagnosisErrors.diagnosis && 'border-destructive'
+              )}
+            />
+            {diagnosisErrors.diagnosis && (
+              <p className="text-xs text-destructive">
+                {diagnosisErrors.diagnosis}
+              </p>
+            )}
           </div>
-        )}
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="treatment-plan" className="text-xs">
+              Treatment Plan
+            </Label>
+            <Textarea
+              id="treatment-plan"
+              value={files.diagnosis?.treatmentPlan || ''}
+              onChange={e =>
+                handleDiagnosisChange('treatmentPlan', e.target.value)
+              }
+              onBlur={e =>
+                validateDiagnosisField('treatmentPlan', e.target.value)
+              }
+              disabled={disabled}
+              placeholder="Treatment Plan을 입력하세요"
+              className={cn(
+                'min-h-[80px] resize-none',
+                diagnosisErrors.treatmentPlan && 'border-destructive'
+              )}
+            />
+            {diagnosisErrors.treatmentPlan && (
+              <p className="text-xs text-destructive">
+                {diagnosisErrors.treatmentPlan}
+              </p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="etc" className="text-xs">
+              Etc
+            </Label>
+            <Textarea
+              id="etc"
+              value={files.diagnosis?.etc || ''}
+              onChange={e => handleDiagnosisChange('etc', e.target.value)}
+              onBlur={e => validateDiagnosisField('etc', e.target.value)}
+              disabled={disabled}
+              placeholder="기타 정보를 입력하세요"
+              className={cn(
+                'min-h-[80px] resize-none',
+                diagnosisErrors.etc && 'border-destructive'
+              )}
+            />
+            {diagnosisErrors.etc && (
+              <p className="text-xs text-destructive">{diagnosisErrors.etc}</p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Measurements file upload */}
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-foreground">
-          Measurements 파일 (Excel)
+          2. Measurements 파일 (Excel){' '}
+          <span className="text-destructive">*</span>
         </label>
         {files.measurements ? (
           <div className="flex items-center gap-2 px-3 py-2 bg-background border border-border rounded-md text-sm">
@@ -367,7 +423,7 @@ export function DiagnosisFileUpload({
       {/* Images upload */}
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-foreground">
-          이미지 파일 (JPG, PNG)
+          3. 이미지 파일 (JPG, PNG) <span className="text-destructive">*</span>
         </label>
         {files.images.length === 0 && (
           <div
@@ -399,7 +455,6 @@ export function DiagnosisFileUpload({
               ref={imagesInputRef}
               type="file"
               className="hidden"
-              multiple
               accept=".jpg,.jpeg,.png"
               onChange={e => handleImagesSelect(e.target.files)}
               disabled={disabled}
@@ -409,51 +464,24 @@ export function DiagnosisFileUpload({
 
         {files.images.length > 0 && (
           <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap gap-2 p-2 bg-muted rounded-lg">
-              {files.images.map((file, index) => (
-                <div
-                  key={`${file.name}-${index}`}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-background border border-border rounded-md text-sm"
-                >
-                  <ImageIcon className="h-4 w-4 text-muted-foreground" />
-                  <div className="flex flex-col min-w-0">
-                    <span className="truncate max-w-[200px] font-medium">
-                      {file.name}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {formatFileSize(file.size)}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleImageRemove(index)}
-                    className="ml-2 p-1 hover:bg-destructive/10 rounded transition-colors"
-                    disabled={disabled}
-                  >
-                    <X className="h-4 w-4 text-muted-foreground hover:text-destructive" />
-                  </button>
-                </div>
-              ))}
-              <Button
+            <div className="flex items-center gap-2 px-3 py-2 bg-background border border-border rounded-md text-sm">
+              <ImageIcon className="h-4 w-4 text-muted-foreground" />
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="truncate max-w-[200px] font-medium">
+                  {files.images[0].name}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {formatFileSize(files.images[0].size)}
+                </span>
+              </div>
+              <button
                 type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => imagesInputRef.current?.click()}
+                onClick={() => handleImageRemove(0)}
+                className="ml-2 p-1 hover:bg-destructive/10 rounded transition-colors"
                 disabled={disabled}
-                className="text-xs"
               >
-                <ImageIcon className="h-4 w-4 mr-2" />
-                이미지 추가
-              </Button>
-              <input
-                ref={imagesInputRef}
-                type="file"
-                className="hidden"
-                multiple
-                accept=".jpg,.jpeg,.png"
-                onChange={e => handleImagesSelect(e.target.files)}
-                disabled={disabled}
-              />
+                <X className="h-4 w-4 text-muted-foreground hover:text-destructive" />
+              </button>
             </div>
           </div>
         )}

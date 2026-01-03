@@ -21,12 +21,26 @@ export const UserMessage: React.FC<UserMessageProps> = ({
   messageId,
   onUpdateMessage
 }) => {
+  // Extract prompt text from JSON if message is JSON string
+  const getDisplayText = (msg: string): string => {
+    try {
+      const parsed = JSON.parse(msg)
+      if (parsed && typeof parsed === 'object' && 'prompt' in parsed) {
+        return parsed.prompt || msg
+      }
+    } catch {
+      // Not JSON, return as is
+    }
+    return msg
+  }
+
+  const displayText = getDisplayText(message)
   const [isEditing, setIsEditing] = useState(false)
-  const [editedContent, setEditedContent] = useState(message)
+  const [editedContent, setEditedContent] = useState(displayText)
 
   const handleEditClick = (e: React.MouseEvent<HTMLButtonElement>) => {
     e.stopPropagation()
-    setEditedContent(message)
+    setEditedContent(displayText)
     setIsEditing(true)
   }
 
@@ -73,7 +87,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({
           </div>
         ) : (
           <div className="flex justify-between items-start">
-            <div className="flex-1">{message}</div>
+            <div className="flex-1">{displayText}</div>
             <div
               className={cn(
                 'absolute top-1 right-1 transition-opacity ml-2',

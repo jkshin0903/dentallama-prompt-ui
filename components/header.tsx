@@ -2,15 +2,17 @@
 
 // import Link from 'next/link' // No longer needed directly here for Sign In button
 import React, { useEffect, useState } from 'react'
+import { useTheme } from 'next-themes'
 
 import { User } from '@supabase/supabase-js'
+import { Moon, Sun } from 'lucide-react'
 
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
 import { useSidebar } from '@/components/ui/sidebar'
 
-// import { Button } from './ui/button' // No longer needed directly here for Sign In button
+import { Button } from './ui/button'
 import GuestMenu from './guest-menu' // Import the new GuestMenu component
 import UserMenu from './user-menu'
 
@@ -20,7 +22,19 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ user: initialUser }) => {
   const { open } = useSidebar()
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
   const [user, setUser] = useState<User | null>(initialUser ?? null)
+
+  // Handle theme toggle
+  const toggleTheme = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark')
+  }
+
+  // Handle mounted state for theme
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   // Fetch user on client side and listen for auth state changes
   useEffect(() => {
@@ -75,6 +89,23 @@ export const Header: React.FC<HeaderProps> = ({ user: initialUser }) => {
       <div></div>
 
       <div className="flex items-center gap-2">
+        {mounted && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="h-8 w-8 rounded-full"
+            title={
+              theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'
+            }
+          >
+            {theme === 'dark' ? (
+              <Sun className="h-4 w-4" />
+            ) : (
+              <Moon className="h-4 w-4" />
+            )}
+          </Button>
+        )}
         {user ? <UserMenu user={user} /> : <GuestMenu />}
       </div>
     </header>

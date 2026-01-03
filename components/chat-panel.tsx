@@ -12,19 +12,26 @@ import {
   ChevronDown,
   LogIn,
   MessageCirclePlus,
+  Paperclip,
   Square
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
+import { DiagnosisFiles } from '@/lib/utils/diagnosis-validation'
 
 import { useArtifact } from './artifact/artifact-context'
 import { Button } from './ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from './ui/dialog'
 import { IconLogo } from './ui/icons'
 import { DiagnosisFileUpload } from './diagnosis-file-upload'
-import { EmptyScreen } from './empty-screen'
-import { FileUpload } from './file-upload'
 import { ModelSelector } from './model-selector'
-import { SearchModeToggle } from './search-mode-toggle'
 
 interface ChatPanelProps {
   input: string
@@ -41,16 +48,8 @@ interface ChatPanelProps {
   onModelChange?: (model: string) => void
   files?: File[]
   onFilesChange?: (files: File[]) => void
-  diagnosisFiles?: {
-    diagnosis?: File
-    measurements?: File
-    images: File[]
-  }
-  onDiagnosisFilesChange?: (files: {
-    diagnosis?: File
-    measurements?: File
-    images: File[]
-  }) => void
+  diagnosisFiles?: DiagnosisFiles
+  onDiagnosisFilesChange?: (files: DiagnosisFiles) => void
   /** Whether to show the scroll to bottom button */
   showScrollToBottomButton: boolean
   /** Reference to the scroll container */
@@ -80,12 +79,12 @@ export function ChatPanel({
   scrollContainerRef,
   user
 }: ChatPanelProps) {
-  const [showEmptyScreen, setShowEmptyScreen] = useState(false)
   const router = useRouter()
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const isFirstRender = useRef(true)
   const [isComposing, setIsComposing] = useState(false) // Composition state
   const [enterDisabled, setEnterDisabled] = useState(false) // Disable Enter after composition ends
+  const [isFileUploadDialogOpen, setIsFileUploadDialogOpen] = useState(false)
   const { close: closeArtifact } = useArtifact()
 
   const handleCompositionStart = () => setIsComposing(true)
@@ -178,30 +177,6 @@ export function ChatPanel({
         )}
 
         <div className="relative flex flex-col w-full gap-2 bg-muted rounded-3xl border border-input">
-          {/* File upload section - only show for treatment-plan-gen model */}
-          {selectedModel === 'treatment-plan-gen' && onDiagnosisFilesChange && (
-            <div className="px-4 pt-4">
-              <DiagnosisFileUpload
-                files={diagnosisFiles}
-                onFilesChange={onDiagnosisFilesChange}
-                disabled={isInputDisabled}
-              />
-            </div>
-          )}
-          {/* File upload section - for other models (hidden for now) */}
-          {selectedModel !== 'treatment-plan-gen' &&
-            onFilesChange &&
-            false &&
-            onFilesChange && (
-              <div className="px-4 pt-4">
-                <FileUpload
-                  files={files}
-                  onFilesChange={onFilesChange as (files: File[]) => void}
-                  disabled={isInputDisabled}
-                />
-              </div>
-            )}
-
           {!user && (
             <div className="px-4 pt-2 pb-2">
               <div className="flex items-center gap-2 text-sm text-muted-foreground bg-background/50 rounded-lg p-3 border border-dashed">
@@ -235,7 +210,6 @@ export function ChatPanel({
             onChange={e => {
               if (user) {
                 handleInputChange(e)
-                setShowEmptyScreen(e.target.value.length === 0)
               }
             }}
             onKeyDown={e => {
@@ -255,21 +229,33 @@ export function ChatPanel({
               }
             }}
             onFocus={() => {
-              if (user) {
-                setShowEmptyScreen(true)
-              } else {
+              if (!user) {
                 inputRef.current?.blur()
                 router.push('/auth/login')
               }
             }}
-            onBlur={() => setShowEmptyScreen(false)}
           />
 
           {/* Bottom menu area */}
           <div className="flex items-center justify-between p-3">
             <div className="flex items-center gap-2">
               <ModelSelector models={[]} onModelChange={onModelChange} />
-              <SearchModeToggle />
+              {/* <SearchModeToggle /> */}
+              {/* File upload button - only show for treatment-plan-gen model */}
+              {selectedModel === 'treatment-plan-gen' &&
+                onDiagnosisFilesChange && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="icon"
+                    onClick={() => setIsFileUploadDialogOpen(true)}
+                    className="shrink-0 rounded-full"
+                    disabled={isInputDisabled}
+                    title="파일 업로드"
+                  >
+                    <Paperclip className="size-4" />
+                  </Button>
+                )}
             </div>
             <div className="flex items-center gap-2">
               {messages.length > 0 && (
@@ -307,18 +293,45 @@ export function ChatPanel({
             </div>
           </div>
         </div>
-
-        {messages.length === 0 && (
-          <EmptyScreen
-            submitMessage={message => {
-              handleInputChange({
-                target: { value: message }
-              } as React.ChangeEvent<HTMLTextAreaElement>)
-            }}
-            className={cn(showEmptyScreen ? 'visible' : 'invisible')}
-          />
-        )}
       </form>
+
+      {/* File upload dialog */}
+      {selectedModel === 'treatment-plan-gen' && onDiagnosisFilesChange && (
+        <Dialog
+          open={isFileUploadDialogOpen}
+          onOpenChange={open => {
+            // Only close dialog when explicitly requested (not from validation)
+            if (!open) {
+              setIsFileUploadDialogOpen(false)
+            }
+          }}
+        >
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>진단 정보 입력</DialogTitle>
+              <DialogDescription>
+                진단 생성에 필요한 정보를 입력하고 파일을 업로드하세요.
+              </DialogDescription>
+            </DialogHeader>
+            <DiagnosisFileUpload
+              files={diagnosisFiles}
+              onFilesChange={onDiagnosisFilesChange}
+              disabled={isInputDisabled}
+            />
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setIsFileUploadDialogOpen(false)
+                }}
+              >
+                닫기
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }

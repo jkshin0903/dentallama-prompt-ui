@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils'
 import { SidebarProvider } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
 
-import AppSidebar from '@/components/app-sidebar'
 import ArtifactRoot from '@/components/artifact/artifact-root'
 import Header from '@/components/header'
 import { ThemeProvider } from '@/components/theme-provider'
@@ -71,7 +70,7 @@ export default async function RootLayout({
           disableTransitionOnChange
         >
           <SidebarProvider defaultOpen>
-            <AppSidebar />
+            {/* <AppSidebar /> */}
             <div className="flex flex-col flex-1">
               <Header user={null} />
               <main className="flex flex-1 min-h-0">
