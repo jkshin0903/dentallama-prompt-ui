@@ -1,9 +1,9 @@
 'use client'
 
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useEffect, useRef, useState } from 'react'
 import Textarea from 'react-textarea-autosize'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 import { User } from '@supabase/supabase-js'
 import { Message } from 'ai'
@@ -20,8 +20,6 @@ import { cn } from '@/lib/utils'
 import { DiagnosisFiles } from '@/lib/utils/diagnosis-validation'
 
 import { useArtifact } from './artifact/artifact-context'
-import { DiagnosisFileUpload } from './diagnosis-file-upload'
-import { ModelSelector } from './model-selector'
 import { Button } from './ui/button'
 import {
   Dialog,
@@ -32,6 +30,8 @@ import {
   DialogTitle
 } from './ui/dialog'
 import { IconLogo } from './ui/icons'
+import { DiagnosisFileUpload } from './diagnosis-file-upload'
+import { ModelSelector } from './model-selector'
 
 interface ChatPanelProps {
   input: string

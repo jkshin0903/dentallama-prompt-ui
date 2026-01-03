@@ -2,18 +2,18 @@
 
 // import Link from 'next/link' // No longer needed directly here for Sign In button
 import React, { useEffect, useState } from 'react'
+import { useTheme } from 'next-themes'
 
 import { User } from '@supabase/supabase-js'
 import { Moon, Sun } from 'lucide-react'
-import { useTheme } from 'next-themes'
 
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
 import { useSidebar } from '@/components/ui/sidebar'
 
-import GuestMenu from './guest-menu' // Import the new GuestMenu component
 import { Button } from './ui/button'
+import GuestMenu from './guest-menu' // Import the new GuestMenu component
 import UserMenu from './user-menu'
 
 interface HeaderProps {
