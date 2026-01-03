@@ -6,10 +6,11 @@ import remarkGfm from 'remark-gfm'
 import remarkMath from 'remark-math'
 
 import { cn } from '@/lib/utils'
+import { formatResponseText } from '@/lib/utils/format-response'
 
+import { Citing } from './custom-link'
 import { CodeBlock } from './ui/codeblock'
 import { MemoizedReactMarkdown } from './ui/markdown'
-import { Citing } from './custom-link'
 
 import 'katex/dist/katex.min.css'
 
@@ -20,13 +21,16 @@ export function BotMessage({
   message: string
   className?: string
 }) {
+  // Format response text for better readability
+  const formattedMessage = formatResponseText(message || '')
+
   // Check if the content contains LaTeX patterns
   const containsLaTeX = /\\\[([\s\S]*?)\\\]|\\\(([\s\S]*?)\\\)/.test(
-    message || ''
+    formattedMessage || ''
   )
 
   // Modify the content to render LaTeX equations if LaTeX patterns are found
-  const processedData = preprocessLaTeX(message || '')
+  const processedData = preprocessLaTeX(formattedMessage || '')
 
   if (containsLaTeX) {
     return (
@@ -88,7 +92,7 @@ export function BotMessage({
         a: Citing
       }}
     >
-      {message}
+      {formattedMessage}
     </MemoizedReactMarkdown>
   )
 }

@@ -10,7 +10,10 @@ import { toast } from 'sonner'
 
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
-import { parseDiagnosisFile } from '@/lib/utils/parse-diagnosis-file'
+import {
+  DiagnosisFiles,
+  validateAllFields
+} from '@/lib/utils/diagnosis-validation'
 import { parseMeasurementsFile } from '@/lib/utils/parse-measurements-file'
 
 import { ChatMessages } from './chat-messages'
@@ -45,11 +48,9 @@ export function Chat({
   const [isAtBottom, setIsAtBottom] = useState(true)
   const [selectedModel, setSelectedModel] = useState('treatment-plan-gen')
   const [files, setFiles] = useState<File[]>([])
-  const [diagnosisFiles, setDiagnosisFiles] = useState<{
-    diagnosis?: File
-    measurements?: File
-    images: File[]
-  }>({ images: [] })
+  const [diagnosisFiles, setDiagnosisFiles] = useState<DiagnosisFiles>({
+    images: []
+  })
   const [user, setUser] = useState<User | null>(initialUser ?? null)
 
   // Fetch user on client side and listen for auth state changes
@@ -275,33 +276,40 @@ export function Chat({
 
     // For treatment-plan-gen model, check diagnosis files
     if (selectedModel === 'treatment-plan-gen') {
-      const hasDiagnosisFiles =
-        diagnosisFiles.diagnosis ||
-        diagnosisFiles.measurements ||
-        diagnosisFiles.images.length > 0
-
-      if (!hasDiagnosisFiles) {
-        handleSubmit(e)
+      // Always validate required fields for treatment-plan-gen model
+      const validation = validateAllFields(diagnosisFiles)
+      if (!validation.valid) {
+        // Show each validation error as a separate toast or combined message
+        if (validation.errors.length === 1) {
+          toast.error(validation.errors[0])
+        } else {
+          // Show all errors in a single toast with better formatting
+          toast.error(
+            `다음 항목을 확인해주세요:\n${validation.errors
+              .map((err, idx) => `${idx + 1}. ${err}`)
+              .join('\n')}`
+          )
+        }
         return
       }
 
-      // Parse diagnosis and measurements files
-      let diagnosis: string | null = null
+      // Parse measurements file
       let measurements: Record<string, number | null> = {}
-
-      if (diagnosisFiles.diagnosis) {
-        diagnosis = await parseDiagnosisFile(diagnosisFiles.diagnosis)
-      }
 
       if (diagnosisFiles.measurements) {
         measurements = await parseMeasurementsFile(diagnosisFiles.measurements)
       }
 
       // Build content as JSON string
-      // Include user's prompt text along with parsed file data
+      // Include user's prompt text along with diagnosis data
       const contentData: {
         prompt?: string
-        diagnosis?: string
+        diagnosis?: {
+          chiefComplain: string
+          diagnosis: string
+          treatmentPlan: string
+          etc: string
+        }
         measurements?: Record<string, number | null>
         use_rag: boolean
       } = {
@@ -313,8 +321,20 @@ export function Chat({
         contentData.prompt = input.trim()
       }
 
-      if (diagnosis) {
-        contentData.diagnosis = diagnosis
+      // Include diagnosis data if provided
+      if (diagnosisFiles.diagnosis) {
+        const hasDiagnosisData =
+          diagnosisFiles.diagnosis.chiefComplain.trim() ||
+          diagnosisFiles.diagnosis.diagnosis.trim() ||
+          diagnosisFiles.diagnosis.treatmentPlan.trim()
+
+        if (hasDiagnosisData) {
+          // Always include etc field, even if empty (as empty string)
+          contentData.diagnosis = {
+            ...diagnosisFiles.diagnosis,
+            etc: diagnosisFiles.diagnosis.etc || ''
+          }
+        }
       }
 
       if (Object.keys(measurements).length > 0) {
@@ -369,8 +389,7 @@ export function Chat({
         files: imageFiles.length > 0 ? imageFiles : undefined
       }
 
-      // Clear input and files after handling response
-      setDiagnosisFiles({ images: [] })
+      // Clear input after handling response (keep diagnosisFiles for reuse)
       handleInputChange({
         target: { value: '' }
       } as React.ChangeEvent<HTMLTextAreaElement>)
