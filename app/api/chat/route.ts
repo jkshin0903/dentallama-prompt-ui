@@ -4,8 +4,8 @@ import { getCurrentUserId } from '@/lib/auth/get-current-user'
 import { proxyTreatmentPlan } from '@/lib/dentallama-api'
 import { TreatmentPlanClientPayload } from '@/lib/types/treatment-plan'
 
-// Must be a numeric literal so Next.js can statically analyze the route config.
-export const maxDuration = 600
+// Hobby plan allows 1–300s; Pro allows up to 800s.
+export const maxDuration = 300
 
 export async function POST(req: Request) {
   try {
