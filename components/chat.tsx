@@ -8,12 +8,17 @@ import { ChatRequestOptions } from 'ai'
 import { Message } from 'ai/react'
 import { toast } from 'sonner'
 
+import {
+  DEFAULT_TREATMENT_PLAN_MODEL,
+  resolveTreatmentPlanModel
+} from '@/lib/config/treatment-plan'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import {
   DiagnosisFiles,
   validateAllFields
 } from '@/lib/utils/diagnosis-validation'
+import { parseAnalysisChartFile } from '@/lib/utils/parse-analysis-chart-file'
 import { parseMeasurementsFile } from '@/lib/utils/parse-measurements-file'
 
 import { ChatMessages } from './chat-messages'
@@ -24,13 +29,6 @@ interface ChatSection {
   id: string // User message ID
   userMessage: Message
   assistantMessages: Message[]
-}
-
-type FileData = {
-  name: string
-  type: string
-  size: number
-  content: number[] // ArrayBuffer as number array for JSON serialization
 }
 
 export function Chat({
@@ -46,12 +44,15 @@ export function Chat({
 }) {
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const [isAtBottom, setIsAtBottom] = useState(true)
-  const [selectedModel, setSelectedModel] = useState('treatment-plan-gen')
-  const [files, setFiles] = useState<File[]>([])
+  const [selectedModel, setSelectedModel] = useState<string>(
+    DEFAULT_TREATMENT_PLAN_MODEL
+  )
   const [diagnosisFiles, setDiagnosisFiles] = useState<DiagnosisFiles>({
     images: []
   })
   const [user, setUser] = useState<User | null>(initialUser ?? null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   // Fetch user on client side and listen for auth state changes
   useEffect(() => {
@@ -98,7 +99,6 @@ export function Chat({
     messages,
     input,
     handleInputChange,
-    handleSubmit,
     status,
     setMessages,
     stop,
@@ -129,7 +129,8 @@ export function Chat({
     experimental_throttle: 100
   })
 
-  const isLoading = status === 'submitted' || status === 'streaming'
+  const isLoading =
+    status === 'submitted' || status === 'streaming' || isSubmitting
 
   // Convert messages array to sections array
   const sections = useMemo<ChatSection[]>(() => {
@@ -265,251 +266,175 @@ export function Chat({
     return await reload(options)
   }
 
-  // Reset files when model changes
+  // Reset diagnosis files when model changes
   useEffect(() => {
-    setFiles([])
     setDiagnosisFiles({ images: [] })
   }, [selectedModel])
+
+  const stopGeneration = () => {
+    abortControllerRef.current?.abort()
+    stop()
+  }
 
   const onSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
 
-    // For treatment-plan-gen model, check diagnosis files
-    if (selectedModel === 'treatment-plan-gen') {
-      // Always validate required fields for treatment-plan-gen model
-      const validation = validateAllFields(diagnosisFiles)
-      if (!validation.valid) {
-        // Show each validation error as a separate toast or combined message
-        if (validation.errors.length === 1) {
-          toast.error(validation.errors[0])
-        } else {
-          // Show all errors in a single toast with better formatting
-          toast.error(
-            `다음 항목을 확인해주세요:\n${validation.errors
-              .map((err, idx) => `${idx + 1}. ${err}`)
-              .join('\n')}`
-          )
-        }
-        return
-      }
-
-      // Parse measurements file
-      let measurements: Record<string, number | null> = {}
-
-      if (diagnosisFiles.measurements) {
-        measurements = await parseMeasurementsFile(diagnosisFiles.measurements)
-      }
-
-      // Build content as JSON string
-      // Include user's prompt text along with diagnosis data
-      const contentData: {
-        prompt?: string
-        diagnosis?: {
-          chiefComplain: string
-          diagnosis: string
-          treatmentPlan: string
-          etc: string
-        }
-        measurements?: Record<string, number | null>
-        use_rag: boolean
-      } = {
-        use_rag: true
-      }
-
-      // Include user's input text if provided
-      if (input && input.trim()) {
-        contentData.prompt = input.trim()
-      }
-
-      // Include diagnosis data if provided
-      if (diagnosisFiles.diagnosis) {
-        const hasDiagnosisData =
-          diagnosisFiles.diagnosis.chiefComplain.trim() ||
-          diagnosisFiles.diagnosis.diagnosis.trim() ||
-          diagnosisFiles.diagnosis.treatmentPlan.trim()
-
-        if (hasDiagnosisData) {
-          // Always include etc field, even if empty (as empty string)
-          contentData.diagnosis = {
-            ...diagnosisFiles.diagnosis,
-            etc: diagnosisFiles.diagnosis.etc || ''
-          }
-        }
-      }
-
-      if (Object.keys(measurements).length > 0) {
-        contentData.measurements = measurements
-      }
-
-      const userMessageContent = JSON.stringify(contentData)
-
-      // Convert image files to base64
-      // Use FileReader to avoid call stack overflow with large images
-      const imageFiles: Array<{
-        name: string
-        type: string
-        content: string
-      }> = []
-
-      for (const image of diagnosisFiles.images) {
-        const base64 = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader()
-          reader.onload = () => {
-            // Remove data URL prefix (e.g., "data:image/jpeg;base64,")
-            const result = reader.result as string
-            const base64String = result.split(',')[1] || result
-            resolve(base64String)
-          }
-          reader.onerror = reject
-          reader.readAsDataURL(image)
-        })
-
-        imageFiles.push({
-          name: image.name,
-          type: image.type,
-          content: base64
-        })
-      }
-
-      // Add user message immediately
-      const userMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'user',
-        content: userMessageContent
-      }
-
-      // Add the user message to the chat
-      const updatedMessages = [...messages, userMessage]
-
-      // Create JSON payload for API
-      const payload = {
-        messages: updatedMessages,
-        id,
-        model: selectedModel,
-        files: imageFiles.length > 0 ? imageFiles : undefined
-      }
-
-      // Clear input after handling response (keep diagnosisFiles for reuse)
-      handleInputChange({
-        target: { value: '' }
-      } as React.ChangeEvent<HTMLTextAreaElement>)
-
-      try {
-        // Send to API as JSON
-        const response = await fetch('/api/chat', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify(payload)
-        })
-
-        if (!response.ok) {
-          const errorText = await response.text()
-          throw new Error(`API error: ${response.status} ${errorText}`)
-        }
-
-        // Parse JSON response and append assistant message
-        // Important: read the body ONCE to avoid "body stream already read"
-        const responseText = await response.text()
-        let assistantContent = ''
-        try {
-          const json = JSON.parse(responseText)
-          assistantContent =
-            json?.response ?? json?.message ?? json?.content ?? ''
-        } catch {
-          // Not JSON; use raw text
-          assistantContent = responseText
-        }
-
-        const assistantMessage: Message = {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: assistantContent
-        }
-
-        setMessages([...updatedMessages, assistantMessage])
-
-        // On finish, update URL if we're on the home page (new chat)
-        if (window.location.pathname === '/') {
-          window.history.replaceState({}, '', `/search/${id}`)
-        }
-        window.dispatchEvent(new CustomEvent('chat-history-updated'))
-      } catch (error) {
-        console.error('Error sending message:', error)
-        toast.error(`Error: ${(error as Error).message}`)
+    const validation = validateAllFields(diagnosisFiles, selectedModel)
+    if (!validation.valid) {
+      if (validation.errors.length === 1) {
+        toast.error(validation.errors[0])
+      } else {
+        toast.error(
+          `다음 항목을 확인해주세요:\n${validation.errors
+            .map((err, idx) => `${idx + 1}. ${err}`)
+            .join('\n')}`
+        )
       }
       return
     }
 
-    // For other models, use existing file upload logic
-    // If no files, use regular handleSubmit
-    if (!files || files.length === 0) {
-      handleSubmit(e)
-      return
+    const isOrthoPlanner =
+      resolveTreatmentPlanModel(selectedModel) === 'orthoplanner'
+
+    let measurements: Record<string, number | null> = {}
+    if (isOrthoPlanner && diagnosisFiles.analysisChart) {
+      measurements = await parseAnalysisChartFile(diagnosisFiles.analysisChart)
+    } else if (diagnosisFiles.measurements) {
+      measurements = await parseMeasurementsFile(diagnosisFiles.measurements)
     }
 
-    // Capture files before clearing
-    const filesToUpload = [...files]
+    const contentData: {
+      prompt?: string
+      diagnosis?: {
+        chiefComplain: string
+        diagnosis: string
+        treatmentPlan: string
+        etc: string
+      }
+      measurements?: Record<string, number | null>
+      use_rag: boolean
+    } = {
+      use_rag: true
+    }
 
-    // Add user message immediately
-    const userMessageContent = input
+    if (input && input.trim()) {
+      contentData.prompt = input.trim()
+    }
+
+    if (diagnosisFiles.diagnosis) {
+      const hasDiagnosisData =
+        diagnosisFiles.diagnosis.chiefComplain.trim() ||
+        diagnosisFiles.diagnosis.diagnosis.trim() ||
+        diagnosisFiles.diagnosis.treatmentPlan.trim()
+
+      if (hasDiagnosisData) {
+        contentData.diagnosis = {
+          ...diagnosisFiles.diagnosis,
+          etc: diagnosisFiles.diagnosis.etc || ''
+        }
+      }
+    }
+
+    if (Object.keys(measurements).length > 0) {
+      const numericMeasurements = Object.fromEntries(
+        Object.entries(measurements).filter(
+          (entry): entry is [string, number] => typeof entry[1] === 'number'
+        )
+      )
+      if (Object.keys(numericMeasurements).length > 0) {
+        contentData.measurements = numericMeasurements
+      }
+    }
+
+    const userMessageContent = JSON.stringify(contentData)
+
+    const imageFiles: Array<{
+      name: string
+      type: string
+      size: number
+      content: string
+    }> = []
+
+    for (const image of diagnosisFiles.images) {
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => {
+          const result = reader.result as string
+          const base64String = result.split(',')[1] || result
+          resolve(base64String)
+        }
+        reader.onerror = reject
+        reader.readAsDataURL(image)
+      })
+
+      imageFiles.push({
+        name: image.name,
+        type: image.type,
+        size: image.size,
+        content: base64
+      })
+    }
 
     const userMessage: Message = {
       id: crypto.randomUUID(),
       role: 'user',
       content: userMessageContent
     }
-
-    // Add the user message to the chat
     const updatedMessages = [...messages, userMessage]
+    setMessages(updatedMessages)
 
-    // Create FormData for file upload
-    const formData = new FormData()
-
-    // Add files to FormData
-    filesToUpload.forEach((file, index) => {
-      formData.append(`file_${index}`, file)
-    })
-
-    // Add metadata as JSON
-    const metadata = {
-      messages: updatedMessages,
+    const payload = {
+      messages: [
+        {
+          role: 'user',
+          content: userMessageContent
+        }
+      ],
       id,
-      model: selectedModel
+      model: selectedModel,
+      files: imageFiles,
+      measurements
     }
-    formData.append('metadata', JSON.stringify(metadata))
 
-    // Clear input and files after handling response
-    setFiles([])
     handleInputChange({
       target: { value: '' }
     } as React.ChangeEvent<HTMLTextAreaElement>)
 
+    const controller = new AbortController()
+    abortControllerRef.current = controller
+    setIsSubmitting(true)
+
     try {
-      // Send to API
       const response = await fetch('/api/chat', {
         method: 'POST',
-        body: formData
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
       })
 
-      if (!response.ok) {
-        const errorText = await response.text()
-        throw new Error(`API error: ${response.status} ${errorText}`)
+      const responseText = await response.text()
+      let json: {
+        response?: string
+        message?: string
+        content?: string
+        error?: string
+      } | null = null
+      try {
+        json = JSON.parse(responseText)
+      } catch {
+        json = null
       }
 
-      // Parse JSON response and append assistant message
-      // Important: read the body ONCE to avoid "body stream already read"
-      const responseText = await response.text()
-      let assistantContent = ''
-      try {
-        const json = JSON.parse(responseText)
-        assistantContent =
-          json?.response ?? json?.message ?? json?.content ?? ''
-      } catch {
-        // Not JSON; use raw text
-        assistantContent = responseText
+      if (!response.ok) {
+        throw new Error(
+          json?.error || json?.response || `API error: ${response.status}`
+        )
       }
+
+      const assistantContent =
+        json?.response ?? json?.message ?? json?.content ?? responseText
 
       const assistantMessage: Message = {
         id: crypto.randomUUID(),
@@ -519,14 +444,19 @@ export function Chat({
 
       setMessages([...updatedMessages, assistantMessage])
 
-      // On finish, update URL if we're on the home page (new chat)
       if (window.location.pathname === '/') {
         window.history.replaceState({}, '', `/search/${id}`)
       }
       window.dispatchEvent(new CustomEvent('chat-history-updated'))
     } catch (error) {
+      if ((error as Error).name === 'AbortError') {
+        return
+      }
       console.error('Error sending message:', error)
       toast.error(`Error: ${(error as Error).message}`)
+    } finally {
+      setIsSubmitting(false)
+      abortControllerRef.current = null
     }
   }
 
@@ -556,14 +486,12 @@ export function Chat({
         isLoading={isLoading}
         messages={messages}
         setMessages={setMessages}
-        stop={stop}
+        stop={stopGeneration}
         query={query}
         append={append}
         models={[]}
         selectedModel={selectedModel}
         onModelChange={setSelectedModel}
-        files={files}
-        onFilesChange={setFiles}
         diagnosisFiles={diagnosisFiles}
         onDiagnosisFilesChange={setDiagnosisFiles}
         showScrollToBottomButton={!isAtBottom}

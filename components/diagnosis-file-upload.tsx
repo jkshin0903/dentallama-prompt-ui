@@ -4,9 +4,11 @@ import { useRef, useState } from 'react'
 
 import { FileSpreadsheet, Image as ImageIcon, X } from 'lucide-react'
 
+import { resolveTreatmentPlanModel } from '@/lib/config/treatment-plan'
 import { cn } from '@/lib/utils'
 import {
   DiagnosisFiles,
+  validateAnalysisChartFile,
   validateMeasurementsFile
 } from '@/lib/utils/diagnosis-validation'
 
@@ -18,6 +20,7 @@ interface DiagnosisFileUploadProps {
   files: DiagnosisFiles
   onFilesChange: (files: DiagnosisFiles) => void
   disabled?: boolean
+  model?: string
 }
 
 // Allowed file extensions
@@ -46,8 +49,12 @@ const isImageFile = (file: File): boolean => {
 export function DiagnosisFileUpload({
   files,
   onFilesChange,
-  disabled
+  disabled,
+  model
 }: DiagnosisFileUploadProps) {
+  const isOrthoPlanner = resolveTreatmentPlanModel(model) === 'orthoplanner'
+  const excelFile = isOrthoPlanner ? files.analysisChart : files.measurements
+  const excelLabel = isOrthoPlanner ? 'AnalysisChart' : 'Measurements'
   const measurementsInputRef = useRef<HTMLInputElement>(null)
   const imagesInputRef = useRef<HTMLInputElement>(null)
   const [isDragging, setIsDragging] = useState(false)
@@ -115,31 +122,34 @@ export function DiagnosisFileUpload({
     }
   }
 
-  const handleMeasurementsSelect = async (selectedFiles: FileList | null) => {
+  const handleExcelSelect = async (selectedFiles: FileList | null) => {
     if (!selectedFiles || selectedFiles.length === 0) return
 
     const file = selectedFiles[0]
     if (!isExcelFile(file)) {
-      setMeasurementsError(`Measurements file must be Excel (.xlsx) format`)
+      setMeasurementsError(
+        `${excelLabel} 파일은 Excel (.xlsx) 형식이어야 합니다.`
+      )
       return
     }
 
     try {
-      // Validate file columns and rows
-      const validation = await validateMeasurementsFile(file)
+      const validation = isOrthoPlanner
+        ? await validateAnalysisChartFile(file)
+        : await validateMeasurementsFile(file)
       if (!validation.valid) {
         setMeasurementsError(validation.error || '파일 검증에 실패했습니다.')
         return
       }
 
-      // Clear error message on successful upload
       setMeasurementsError(null)
-      onFilesChange({
-        ...files,
-        measurements: file
-      })
+      onFilesChange(
+        isOrthoPlanner
+          ? { ...files, analysisChart: file, measurements: undefined }
+          : { ...files, measurements: file, analysisChart: undefined }
+      )
     } catch (error) {
-      console.error('Error in handleMeasurementsSelect:', error)
+      console.error('Error in handleExcelSelect:', error)
       setMeasurementsError(
         error instanceof Error
           ? `파일 업로드 중 오류: ${error.message}`
@@ -197,21 +207,29 @@ export function DiagnosisFileUpload({
     const excelFiles = droppedFiles.filter(isExcelFile)
     const imageFiles = droppedFiles.filter(isImageFile)
 
-    // Try to assign Excel files to measurements if empty
-    if (excelFiles.length > 0) {
-      if (!files.measurements && excelFiles.length > 0) {
-        const measurementsFile = excelFiles[0]
-        const validation = await validateMeasurementsFile(measurementsFile)
-        if (!validation.valid) {
-          setMeasurementsError(validation.error || '파일 검증에 실패했습니다.')
-        } else {
-          // Clear error message on successful upload
-          setMeasurementsError(null)
-          onFilesChange({
-            ...files,
-            measurements: measurementsFile
-          })
-        }
+    // Try to assign Excel files to the model-specific slot if empty
+    if (excelFiles.length > 0 && !excelFile) {
+      const uploadedExcel = excelFiles[0]
+      const validation = isOrthoPlanner
+        ? await validateAnalysisChartFile(uploadedExcel)
+        : await validateMeasurementsFile(uploadedExcel)
+      if (!validation.valid) {
+        setMeasurementsError(validation.error || '파일 검증에 실패했습니다.')
+      } else {
+        setMeasurementsError(null)
+        onFilesChange(
+          isOrthoPlanner
+            ? {
+                ...files,
+                analysisChart: uploadedExcel,
+                measurements: undefined
+              }
+            : {
+                ...files,
+                measurements: uploadedExcel,
+                analysisChart: undefined
+              }
+        )
       }
     }
 
@@ -357,31 +375,32 @@ export function DiagnosisFileUpload({
         </div>
       </div>
 
-      {/* Measurements file upload */}
+      {/* Measurements / AnalysisChart file upload */}
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-foreground">
-          2. Measurements 파일 (Excel){' '}
+          2. {excelLabel} 파일 (Excel){' '}
           <span className="text-destructive">*</span>
         </label>
-        {files.measurements ? (
+        {excelFile ? (
           <div className="flex items-center gap-2 px-3 py-2 bg-background border border-border rounded-md text-sm">
             <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
             <div className="flex flex-col min-w-0 flex-1">
               <span className="truncate max-w-[200px] font-medium">
-                {files.measurements.name}
+                {excelFile.name}
               </span>
               <span className="text-xs text-muted-foreground">
-                {formatFileSize(files.measurements.size)}
+                {formatFileSize(excelFile.size)}
               </span>
             </div>
             <button
               type="button"
               onClick={() => {
                 setMeasurementsError(null)
-                onFilesChange({
-                  ...files,
-                  measurements: undefined
-                })
+                onFilesChange(
+                  isOrthoPlanner
+                    ? { ...files, analysisChart: undefined }
+                    : { ...files, measurements: undefined }
+                )
               }}
               className="ml-2 p-1 hover:bg-destructive/10 rounded transition-colors"
               disabled={disabled}
@@ -400,19 +419,18 @@ export function DiagnosisFileUpload({
               className="text-xs"
             >
               <FileSpreadsheet className="h-4 w-4 mr-2" />
-              Measurements 파일 선택
+              {excelLabel} 파일 선택
             </Button>
             <input
               ref={measurementsInputRef}
               type="file"
               className="hidden"
               accept=".xlsx"
-              onChange={e => handleMeasurementsSelect(e.target.files)}
+              onChange={e => handleExcelSelect(e.target.files)}
               disabled={disabled}
             />
           </div>
         )}
-        {/* Measurements error message */}
         {measurementsError && (
           <div className="text-sm text-destructive bg-destructive/10 p-2 rounded-md">
             {measurementsError}
@@ -423,7 +441,7 @@ export function DiagnosisFileUpload({
       {/* Images upload */}
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-foreground">
-          3. 이미지 파일 (JPG, PNG) <span className="text-destructive">*</span>
+          3. Ceph 이미지 (JPG, PNG) <span className="text-destructive">*</span>
         </label>
         {files.images.length === 0 && (
           <div

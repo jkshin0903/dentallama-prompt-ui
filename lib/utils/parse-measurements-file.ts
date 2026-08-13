@@ -35,7 +35,9 @@ export async function parseMeasurementsFile(
 
     // Skip header row and process data rows
     for (const row of data) {
-      const measurementName = (row[measurementsColumn] as string)?.trim()
+      const measurementName = (row[measurementsColumn] as string)
+        ?.replace(/\r/g, '')
+        .trim()
 
       // Skip empty rows and header row (where measurement name equals the column header)
       if (!measurementName || measurementName === measurementsColumn) continue
