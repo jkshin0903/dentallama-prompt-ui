@@ -16,6 +16,7 @@ import {
   Square
 } from 'lucide-react'
 
+import { resolveTreatmentPlanModel } from '@/lib/config/treatment-plan'
 import { cn } from '@/lib/utils'
 import { DiagnosisFiles } from '@/lib/utils/diagnosis-validation'
 
@@ -68,11 +69,8 @@ export function ChatPanel({
   query,
   stop,
   append,
-  models,
   selectedModel,
   onModelChange,
-  files = [],
-  onFilesChange,
   diagnosisFiles = { images: [] },
   onDiagnosisFilesChange,
   showScrollToBottomButton,
@@ -239,23 +237,24 @@ export function ChatPanel({
           {/* Bottom menu area */}
           <div className="flex items-center justify-between p-3">
             <div className="flex items-center gap-2">
-              <ModelSelector models={[]} onModelChange={onModelChange} />
-              {/* <SearchModeToggle /> */}
-              {/* File upload button - only show for treatment-plan-gen model */}
-              {selectedModel === 'treatment-plan-gen' &&
-                onDiagnosisFilesChange && (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setIsFileUploadDialogOpen(true)}
-                    className="shrink-0 rounded-full"
-                    disabled={isInputDisabled}
-                    title="파일 업로드"
-                  >
-                    <Paperclip className="size-4" />
-                  </Button>
-                )}
+              <ModelSelector
+                value={selectedModel}
+                onModelChange={onModelChange}
+              />
+              {/* File upload button */}
+              {onDiagnosisFilesChange && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsFileUploadDialogOpen(true)}
+                  className="shrink-0 rounded-full"
+                  disabled={isInputDisabled}
+                  title="파일 업로드"
+                >
+                  <Paperclip className="size-4" />
+                </Button>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {messages.length > 0 && (
@@ -276,7 +275,9 @@ export function ChatPanel({
                 variant={'outline'}
                 className={cn(isLoading && 'animate-pulse', 'rounded-full')}
                 disabled={
-                  (input.length === 0 && !isLoading) ||
+                  (!isLoading &&
+                    input.length === 0 &&
+                    !(diagnosisFiles.images.length > 0)) ||
                   isToolInvocationInProgress() ||
                   !user
                 }
@@ -296,11 +297,10 @@ export function ChatPanel({
       </form>
 
       {/* File upload dialog */}
-      {selectedModel === 'treatment-plan-gen' && onDiagnosisFilesChange && (
+      {onDiagnosisFilesChange && (
         <Dialog
           open={isFileUploadDialogOpen}
           onOpenChange={open => {
-            // Only close dialog when explicitly requested (not from validation)
             if (!open) {
               setIsFileUploadDialogOpen(false)
             }
@@ -310,13 +310,16 @@ export function ChatPanel({
             <DialogHeader>
               <DialogTitle>진단 정보 입력</DialogTitle>
               <DialogDescription>
-                진단 생성에 필요한 정보를 입력하고 파일을 업로드하세요.
+                {resolveTreatmentPlanModel(selectedModel) === 'orthoplanner'
+                  ? 'AnalysisChart 엑셀과 Ceph 이미지를 업로드하세요. 첫 요청은 모델 로딩으로 수분 걸릴 수 있습니다.'
+                  : '진단 생성에 필요한 정보를 입력하고 파일을 업로드하세요.'}
               </DialogDescription>
             </DialogHeader>
             <DiagnosisFileUpload
               files={diagnosisFiles}
               onFilesChange={onDiagnosisFilesChange}
               disabled={isInputDisabled}
+              model={selectedModel}
             />
             <DialogFooter>
               <Button

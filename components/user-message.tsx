@@ -16,24 +16,36 @@ type UserMessageProps = {
   onUpdateMessage?: (messageId: string, newContent: string) => Promise<void>
 }
 
+function getDisplayText(msg: string): string {
+  try {
+    const parsed = JSON.parse(msg)
+    if (parsed && typeof parsed === 'object') {
+      if (typeof parsed.prompt === 'string' && parsed.prompt.trim()) {
+        return parsed.prompt
+      }
+      if (typeof parsed.diagnosis === 'string' && parsed.diagnosis.trim()) {
+        return parsed.diagnosis
+      }
+      if (
+        parsed.diagnosis &&
+        typeof parsed.diagnosis === 'object' &&
+        parsed.diagnosis.diagnosis
+      ) {
+        return parsed.diagnosis.diagnosis
+      }
+      return '치료계획 생성 요청'
+    }
+  } catch {
+    // Not JSON, return as is
+  }
+  return msg
+}
+
 export const UserMessage: React.FC<UserMessageProps> = ({
   message,
   messageId,
   onUpdateMessage
 }) => {
-  // Extract prompt text from JSON if message is JSON string
-  const getDisplayText = (msg: string): string => {
-    try {
-      const parsed = JSON.parse(msg)
-      if (parsed && typeof parsed === 'object' && 'prompt' in parsed) {
-        return parsed.prompt || msg
-      }
-    } catch {
-      // Not JSON, return as is
-    }
-    return msg
-  }
-
   const displayText = getDisplayText(message)
   const [isEditing, setIsEditing] = useState(false)
   const [editedContent, setEditedContent] = useState(displayText)
