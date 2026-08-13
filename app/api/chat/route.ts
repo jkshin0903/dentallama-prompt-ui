@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 
 import { getCurrentUserId } from '@/lib/auth/get-current-user'
-import { INFERENCE_MAX_DURATION_SEC } from '@/lib/config/treatment-plan'
 import { proxyTreatmentPlan } from '@/lib/dentallama-api'
 import { TreatmentPlanClientPayload } from '@/lib/types/treatment-plan'
 
-export const maxDuration = INFERENCE_MAX_DURATION_SEC
+// Must be a numeric literal so Next.js can statically analyze the route config.
+export const maxDuration = 600
 
 export async function POST(req: Request) {
   try {

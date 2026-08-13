@@ -3,7 +3,6 @@ import { TreatmentPlanModelId } from '@/lib/types/treatment-plan'
 export const DEFAULT_TREATMENT_PLAN_MODEL: TreatmentPlanModelId = 'gemma'
 
 export const INFERENCE_TIMEOUT_MS = 600_000
-export const INFERENCE_MAX_DURATION_SEC = 600
 
 export const TREATMENT_PLAN_ENDPOINTS = {
   gemma: '/api/v1/gemma/treatment-plan',
