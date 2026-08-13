@@ -8,7 +8,6 @@ import { cn } from '@/lib/utils'
 
 import { Button } from './ui/button'
 import { ChatShare } from './chat-share'
-import { RetryButton } from './retry-button'
 
 interface MessageActionsProps {
   message: string
@@ -21,8 +20,6 @@ interface MessageActionsProps {
 
 export function MessageActions({
   message,
-  messageId,
-  reload,
   chatId,
   enableShare,
   className
@@ -45,7 +42,6 @@ export function MessageActions({
         className
       )}
     >
-      {reload && <RetryButton reload={reload} messageId={messageId} />}
       <Button
         variant="ghost"
         size="icon"
